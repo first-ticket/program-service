@@ -1,0 +1,76 @@
+# ──────────────────────────────────────────
+# application-prod.yaml
+# ──────────────────────────────────────────
+spring:
+    config:
+        activate:
+            on-profile: prod
+
+    datasource:
+        url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        driver-class-name: org.postgresql.Driver
+        hikari:
+            maximum-pool-size: 30
+            minimum-idle: 5
+            connection-timeout: 30000
+            idle-timeout: 600000
+            max-lifetime: 1800000
+            leak-detection-threshold: 60000
+
+    jpa:
+        hibernate:
+            ddl-auto: validate
+        properties:
+            hibernate:
+                show_sql: false
+
+    flyway:
+        enabled: true
+        schemas: program
+        default-schema: program
+        locations: classpath:db/migration
+        baseline-on-migrate: false
+        out-of-order: false
+
+    kafka:
+        bootstrap-servers: ${KAFKA_SERVERS}
+        producer:
+            acks: all
+            retries: 3
+            properties:
+                enable.idempotence: true
+
+    data:
+        redis:
+            host: ${REDIS_HOST}
+            port: 6379
+            password: ${REDIS_PASSWORD}
+            timeout: 2000ms # 연결 타임아웃 추가
+            lettuce:
+                pool:
+                    max-active: 8
+                    max-idle: 8
+                    min-idle: 2
+
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    issuer-uri: ${KEYCLOAK_ISSUER_URI}
+
+eureka:
+    client:
+        service-url:
+            defaultZone: ${EUREKA_URI}/eureka
+
+management:
+    tracing:
+        sampling:
+            probability: 0.1  # 운영 10% 샘플링
+
+logging:
+    level:
+        com.firstticket: INFO
+        org.hibernate.SQL: WARN

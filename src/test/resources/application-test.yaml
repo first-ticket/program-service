@@ -1,0 +1,39 @@
+spring:
+    config:
+        activate:
+            on-profile: test
+
+    datasource:
+        url: jdbc:h2:mem:program_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+        driver-class-name: org.h2.Driver
+        username: sa
+        password:
+
+    jpa:
+        hibernate:
+            ddl-auto: create-drop
+        properties:
+            hibernate:
+                format_sql: true
+
+    flyway:
+        enabled: false
+
+    # Redis 환경 변수 에러 방지용 가짜 값
+    data:
+        redis:
+            host: localhost
+            port: 6379
+
+    kafka:
+        bootstrap-servers: localhost:9092
+
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    issuer-uri: http://localhost:8080/realms/test
+
+eureka:
+    client:
+        enabled: false
