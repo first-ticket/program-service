@@ -12,6 +12,11 @@ spring:
     config:
         import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
 
+    cloud:
+        config:
+            username: ${CONFIG_SERVER_USERNAME}
+            password: ${CONFIG_SERVER_PASSWORD}
+
     profiles:
         active: local  # 기본 로컬 실행
 
