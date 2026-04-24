@@ -1,0 +1,178 @@
+package com.firstticket.programservice.domain;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import com.firstticket.common.persistence.BaseUserEntity;
+import com.firstticket.programservice.domain.exception.ProgramErrorCode;
+import com.firstticket.programservice.domain.exception.ProgramException;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "p_program")
+@Getter
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Program extends BaseUserEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid", updatable = false)
+    private UUID id;
+
+    @Column(nullable = false, length = 200)
+    private String title;
+
+    @Column(nullable = false, length = 100)
+    private String category;
+
+    @Column(nullable = false, length = 100)
+    private String theme;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ProgramType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ProgramStatus status;
+
+    @Column(columnDefinition = "TEXT")
+    private String posterUrl;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+
+    /**
+     * Program 애그리거트 루트가 Schedule 컬렉션을 직접 관리
+     * Schedule은 Program을 통해서만 생성·삭제되어야 하며,
+     * 외부에서 ScheduleRepository로 직접 저장하지 않습니다.
+     */
+    @OneToMany(mappedBy = "program",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY)
+    private List<Schedule> schedules;
+
+    /**
+     * 신규 공연 생성 (Static Factory Method) 정적 팩토리 메서드.
+     * 초기 생성 시 상태는 항상 DRAFT(초안)로 설정됩니다.
+     */
+    public static Program create(String title, String category, String theme,
+        ProgramType type, String posterUrl, String description) {
+        return new Program(
+            null,
+            title, category, theme,
+            type, ProgramStatus.DRAFT,
+            posterUrl, description,
+            new ArrayList<>()
+        );
+    }
+
+    //TODO: 개별 Schedule 취소 기능 추가 시 ScheduleStatus 도입 여부 고려
+    //      → 기본 기능 구현 후 고도화 시 feature/schedule-status 브랜치에서 작업
+    /**
+     * 스케줄 추가는 반드시 Program을 통해서만 가능합니다.
+     * V-04: 공연장 중복 예약 검증은 Application 계층(CreateScheduleUseCase)에서
+     * VenueClient를 통해 선행 검증 후 이 메서드를 호출해야 합니다.
+     * 공연에 새로운 회차(Schedule)를 추가합니다.
+     * @throws ProgramException 공연이 취소(CANCELLED)되었거나 종료(CLOSED)된 경우 수정 불가
+     */
+    public Schedule addSchedule(UUID venueId,
+        LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+        LocalDateTime saleStartAt, LocalDateTime saleEndAt,
+        int totalCapacity) {
+        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
+        }
+        Schedule schedule = Schedule.create(
+            this, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity
+        );
+        schedules.add(schedule);
+        return schedule;
+    }
+
+
+    /**
+     * 공연을 판매 중(ON_SALE) 상태로 전환합니다.
+     * @throws ProgramException 등록된 스케줄이 하나도 없는 경우 공개 불가
+     */
+    public void publish() {
+        status.validateTransition(ProgramStatus.ON_SALE);
+        if (schedules.isEmpty()) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_REQUIRED);
+        }
+        this.status = ProgramStatus.ON_SALE;
+    }
+
+
+    public void cancel() {
+        status.validateTransition(ProgramStatus.CANCELLED);
+        this.status = ProgramStatus.CANCELLED;
+    }
+
+
+    public void close() {
+        status.validateTransition(ProgramStatus.CLOSED);
+        this.status = ProgramStatus.CLOSED;
+    }
+
+    /**
+     * 초안(DRAFT) 상태의 공연 정보를 수정합니다. (주요 필드 수정 가능)
+     */
+    public void updateDraft(String title, String category, String theme,
+        String posterUrl, String description) {
+        if (this.status != ProgramStatus.DRAFT) {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
+        }
+        if (title != null)
+            this.title = title;
+        if (category != null)
+            this.category = category;
+        if (theme != null)
+            this.theme = theme;
+        if (posterUrl != null)
+            this.posterUrl = posterUrl;
+        if (description != null)
+            this.description = description;
+    }
+
+    /**
+     * 판매(ON_SALE) 중인 공연의 정보를 수정합니다. (포스터 및 설명 등 일부 정보만 허용)
+     */
+    public void updateOnSale(String posterUrl, String description) {
+        if (this.status != ProgramStatus.ON_SALE) {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
+        }
+        if (posterUrl != null)
+            this.posterUrl = posterUrl;
+        if (description != null)
+            this.description = description;
+    }
+
+    /**
+     * 외부에서 리스트를 직접 수정하는 것을 방지하기 위해 불변 리스트로 반환합니다.
+     */
+    public List<Schedule> getSchedules() {
+        return Collections.unmodifiableList(schedules);
+    }
+}
