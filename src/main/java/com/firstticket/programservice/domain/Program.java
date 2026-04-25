@@ -94,6 +94,7 @@ public class Program extends BaseUserEntity {
 
     /**
      * 스케줄 추가는 반드시 Program을 통해서만 가능합니다.
+     * SOLD_OUT 상태라도 새 회차를 추가하면 다시 판매가 가능해지므로, 스케줄 추가가 가능합니다.
      * V-04: 공연장 중복 예약의 주된 검증은 Application 계층에서 진행
      * 공연장 중복 예약 검증(V-04) 처리 레이어:
      *   1. DB: exclusion constraint (tsrange)로 범위 겹침 원천 차단
@@ -110,7 +111,7 @@ public class Program extends BaseUserEntity {
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
         int totalCapacity) {
         // 프로그램 상태가 CANCELLED, CLOSED 일 경우, 스케줄 추가는 불가능
-        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED || status == ProgramStatus.SOLD_OUT) {
+        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
         Schedule schedule = Schedule.create(

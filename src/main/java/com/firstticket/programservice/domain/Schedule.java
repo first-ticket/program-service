@@ -101,7 +101,6 @@ public class Schedule extends BaseUserEntity {
         );
     }
 
-
     /**
      * 해당 회차에 가격 등급(PriceGrade)을 추가합니다.
      * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
@@ -116,6 +115,11 @@ public class Schedule extends BaseUserEntity {
     }
 
     public void removePriceGrade(String gradeLabel) {
+        // 입력값 검증 — null/blank는 INVALID_GRADE_LABEL로 분리
+        if (gradeLabel == null || gradeLabel.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
+        }
+
         boolean removed = priceGrades.removeIf(
             pg -> pg.getGradeLabel().equals(gradeLabel)
         );
