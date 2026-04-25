@@ -35,6 +35,9 @@ public enum ProgramErrorCode implements ErrorCode {
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "스케줄을 찾을 수 없습니다"),
     /** 동일 공연장, 동일 시간에 이미 다른 공연 회차가 등록되어 있는 경우 */
     VENUE_TIME_CONFLICT(HttpStatus.CONFLICT, "해당 공연장에 이미 예약된 일정이 있습니다"),
+    SCHEDULE_NOT_EDITABLE(HttpStatus.UNPROCESSABLE_ENTITY, "종료된 프로그램의 스케줄은 수정할 수 없습니다"),
+    SCHEDULE_SALE_INFO_NOT_EDITABLE(HttpStatus.UNPROCESSABLE_ENTITY, "판매 중인 스케줄의 공연장·판매 기간은 수정할 수 없습니다"),
+    SCHEDULE_NOT_DELETABLE(HttpStatus.UNPROCESSABLE_ENTITY, "DRAFT 상태에서만 스케줄을 삭제할 수 있습니다"),
     INVALID_CAPACITY(HttpStatus.BAD_REQUEST, "수용 인원은 1명 이상이어야 합니다"),
     INVALID_VENUE_ID(HttpStatus.BAD_REQUEST, "공연장 ID는 필수입니다"),
 

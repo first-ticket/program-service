@@ -122,6 +122,21 @@ public class Program extends BaseUserEntity {
     }
 
     /**
+     * DRAFT 상태에서만 스케줄 삭제 가능.
+     * ON_SALE 이후에는 예매가 진행 중일 수 있으므로
+     * Program 전체를 CANCELLED 처리해야 함
+     */
+    public void removeSchedule(UUID scheduleId) {
+        if (this.status != ProgramStatus.DRAFT) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_DELETABLE);
+        }
+        boolean removed = schedules.removeIf(s -> s.getId().equals(scheduleId));
+        if (!removed) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND);
+        }
+    }
+
+    /**
      * 공연을 판매 중(ON_SALE) 상태로 전환합니다.
      * @throws ProgramException 등록된 스케줄이 하나도 없는 경우 공개 불가
      */

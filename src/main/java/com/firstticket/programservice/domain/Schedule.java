@@ -102,6 +102,52 @@ public class Schedule extends BaseUserEntity {
     }
 
     /**
+     * 스케줄 정보를 수정합니다.
+     * - DRAFT: 전체 필드 수정 가능
+     * - ON_SALE/SOLD_OUT: eventStartAt, eventEndAt, totalCapacity만 수정 가능
+     *   saleStartAt, saleEndAt, venueId는 예매 진행 중이므로 변경 불가
+     * - CANCELLED/CLOSED: 수정 불가
+     */
+    public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+        LocalDateTime saleStartAt, LocalDateTime saleEndAt,
+        UUID venueId, int totalCapacity) {
+
+        ProgramStatus programStatus = this.program.getStatus();
+
+        if (programStatus == ProgramStatus.CANCELLED
+            || programStatus == ProgramStatus.CLOSED) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_EDITABLE);
+        }
+
+        if (programStatus != ProgramStatus.DRAFT) {
+            if (saleStartAt != null || saleEndAt != null || venueId != null) {
+                throw new ProgramException(ProgramErrorCode.SCHEDULE_SALE_INFO_NOT_EDITABLE);
+            }
+        }
+
+        // 부분 업데이트: null이면 기존 값 유지
+        LocalDateTime newEventStart = (eventStartAt != null) ? eventStartAt : this.eventStartAt;
+        LocalDateTime newEventEnd = (eventEndAt != null) ? eventEndAt : this.eventEndAt;
+        LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
+        LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
+
+        // 최종 조합값으로 기간 유효성 재검증
+        // 기존 값이 채워진 상태이므로 null 없이 안전하게 호출 가능
+        validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
+
+        // 검증 통과 후 반영
+        // 검증 전 필드 변경 시 실패 시 객체 상태 오염 방지
+        this.eventStartAt = newEventStart;
+        this.eventEndAt = newEventEnd;
+        this.saleStartAt = newSaleStart;
+        this.saleEndAt = newSaleEnd;
+        if (venueId != null)
+            this.venueId = venueId;
+        if (totalCapacity > 0)
+            this.totalCapacity = totalCapacity;
+    }
+
+    /**
      * 해당 회차에 가격 등급(PriceGrade)을 추가합니다.
      * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
      */
