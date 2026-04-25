@@ -101,6 +101,7 @@ public class Schedule extends BaseUserEntity {
         );
     }
 
+
     /**
      * 해당 회차에 가격 등급(PriceGrade)을 추가합니다.
      * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
@@ -126,7 +127,7 @@ public class Schedule extends BaseUserEntity {
     /**
      * 현재 시각 기준으로 티켓 판매 가능 여부를 확인합니다.
      */
-    public boolean isOnSale() {
+    public boolean isWithinSalePeriod() {
         LocalDateTime now = LocalDateTime.now();
         return now.isAfter(saleStartAt) && now.isBefore(saleEndAt);
     }
@@ -140,6 +141,14 @@ public class Schedule extends BaseUserEntity {
      */
     private static void validatePeriod(LocalDateTime eventStart, LocalDateTime eventEnd,
         LocalDateTime saleStart, LocalDateTime saleEnd) {
+        // null 선검증 추가
+        if (eventStart == null || eventEnd == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_EVENT_PERIOD);
+        }
+        if (saleStart == null || saleEnd == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
+        }
+
         // 과거 시점 공연 등록 차단
         // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
         if (eventStart.isBefore(LocalDateTime.now())) {

@@ -110,7 +110,7 @@ public class Program extends BaseUserEntity {
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
         int totalCapacity) {
         // 프로그램 상태가 CANCELLED, CLOSED 일 경우, 스케줄 추가는 불가능
-        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
+        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED || status == ProgramStatus.SOLD_OUT) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
         Schedule schedule = Schedule.create(
@@ -150,12 +150,14 @@ public class Program extends BaseUserEntity {
         if (this.status != ProgramStatus.DRAFT) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
-        if (title != null)
-            this.title = title;
-        if (category != null)
-            this.category = category;
-        if (theme != null)
-            this.theme = theme;
+        String nextTitle = (title != null) ? title : this.title;
+        String nextCategory = (category != null) ? category : this.category;
+        String nextTheme = (theme != null) ? theme : this.theme;
+        validateProgramInfo(nextTitle, nextCategory, nextTheme, this.type);
+
+        this.title = nextTitle;
+        this.category = nextCategory;
+        this.theme = nextTheme;
         if (posterUrl != null)
             this.posterUrl = posterUrl;
         if (description != null)
