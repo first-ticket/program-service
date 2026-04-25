@@ -77,10 +77,45 @@ public class PriceGrade extends BaseEntity {
      */
     static PriceGrade create(Schedule schedule, UUID sectionId,
         String gradeLabel, int price) {
-        if (price < 0) {
-            throw new ProgramException(ProgramErrorCode.INVALID_PRICE);
-        }
+        // PriceGrade 필수 정보 검증
+        validatePriceGradeInfo(price, gradeLabel);
+
+        // ProgramType 기준으로 sectionId 필수 여부를 강제
+        // SEATED / STANDING: sectionId 필수 (구역별 등급 설정)
+        // FREE: sectionId null 허용 (가격 구분 없이 단일 가격)
+        ProgramType programType = schedule.getProgram().getType();
+        validateSectionId(programType, sectionId);
+
         return new PriceGrade(null, schedule, sectionId, gradeLabel, price);
+    }
+
+    private static void validatePriceGradeInfo(int price, String gradeLabel) {
+        if (price < 0)
+            throw new ProgramException(ProgramErrorCode.INVALID_PRICE);
+        if (gradeLabel == null || gradeLabel.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
+        }
+    }
+
+    /**
+     * ProgramType과 sectionId 조합의 유효성을 검증
+     * 모순 케이스:
+     *   - SEATED/STANDING인데 sectionId == null → 구역 정보 없이 가격 등급을 설정할 수 없음
+     *   - FREE인데 sectionId != null            → 자유 입장에 구역 등급 설정은 의미 없음
+     */
+    private static void validateSectionId(ProgramType type, UUID sectionId) {
+        switch (type) {
+            case SEATED, STANDING -> {
+                if (sectionId == null) {
+                    throw new ProgramException(ProgramErrorCode.SECTION_ID_REQUIRED);
+                }
+            }
+            case FREE -> {
+                if (sectionId != null) {
+                    throw new ProgramException(ProgramErrorCode.SECTION_ID_NOT_ALLOWED);
+                }
+            }
+        }
     }
 
     /**
@@ -89,16 +124,39 @@ public class PriceGrade extends BaseEntity {
      * */
     @Override
     public boolean equals(Object o) {
+        // 자기자신 비교
         if (this == o)
             return true;
+        //  같은 타입인지 확인
         if (!(o instanceof PriceGrade other))
             return false;
-        return gradeLabel.equals(other.gradeLabel)
-            && schedule.getId().equals(other.schedule.getId());
+        // 등급명이 같은지 확인
+        if (!gradeLabel.equals(other.gradeLabel))
+            return false;
+
+        // 같은 schedule 내에 있는지 확인
+        UUID thisScheduleId = this.schedule.getId();
+        UUID otherScheduleId = other.schedule.getId();
+
+        // 둘 다 영속화된 경우: UUID 값 비교
+        if (thisScheduleId != null && otherScheduleId != null) {
+            return thisScheduleId.equals(otherScheduleId);
+        }
+
+        // 둘 중 하나라도 영속화 전인 경우: 객체 참조(identity) 비교
+        // 같은 Schedule 인스턴스를 공유하면 동일한 Schedule로 간주
+        return this.schedule == other.schedule;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(schedule.getId(), gradeLabel);
+        UUID scheduleId = this.schedule.getId();
+        // 영속화 전(id == null): 객체 참조의 identityHashCode를 사용
+        // 영속화 후(id != null): UUID 값 기반 해시
+        int scheduleHash = (scheduleId != null)
+            ? scheduleId.hashCode()
+            : System.identityHashCode(this.schedule);
+
+        return Objects.hash(scheduleHash, gradeLabel);
     }
 }

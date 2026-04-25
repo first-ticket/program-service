@@ -61,7 +61,6 @@ public class Program extends BaseUserEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-
     /**
      * Program 애그리거트 루트가 Schedule 컬렉션을 직접 관리
      * Schedule은 Program을 통해서만 생성·삭제되어야 하며,
@@ -79,6 +78,8 @@ public class Program extends BaseUserEntity {
      */
     public static Program create(String title, String category, String theme,
         ProgramType type, String posterUrl, String description) {
+        // 프로그램 주요 정보 검증
+        validateProgramInfo(title, category, theme, type);
         return new Program(
             null,
             title, category, theme,
@@ -90,10 +91,17 @@ public class Program extends BaseUserEntity {
 
     //TODO: 개별 Schedule 취소 기능 추가 시 ScheduleStatus 도입 여부 고려
     //      → 기본 기능 구현 후 고도화 시 feature/schedule-status 브랜치에서 작업
+
     /**
      * 스케줄 추가는 반드시 Program을 통해서만 가능합니다.
-     * V-04: 공연장 중복 예약 검증은 Application 계층(CreateScheduleUseCase)에서
-     * VenueClient를 통해 선행 검증 후 이 메서드를 호출해야 합니다.
+     * V-04: 공연장 중복 예약의 주된 검증은 Application 계층에서 진행
+     * 공연장 중복 예약 검증(V-04) 처리 레이어:
+     *   1. DB: exclusion constraint (tsrange)로 범위 겹침 원천 차단
+     *   2. Application: VenueClient를 통해 선행 검증 후에
+     *      findOverlappingSchedulesWithLock()으로
+     *      비관적 잠금 후 선검증 → 명확한 에러 메시지 반환
+     *   3. Domain: 이 메서드는 기간 유효성(시작<종료)만 검증한다.
+     *      공연장 중복 여부는 Application 계층 책임이다.
      * 공연에 새로운 회차(Schedule)를 추가합니다.
      * @throws ProgramException 공연이 취소(CANCELLED)되었거나 종료(CLOSED)된 경우 수정 불가
      */
@@ -101,6 +109,7 @@ public class Program extends BaseUserEntity {
         LocalDateTime eventStartAt, LocalDateTime eventEndAt,
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
         int totalCapacity) {
+        // 프로그램 상태가 CANCELLED, CLOSED 일 경우, 스케줄 추가는 불가능
         if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
@@ -110,7 +119,6 @@ public class Program extends BaseUserEntity {
         schedules.add(schedule);
         return schedule;
     }
-
 
     /**
      * 공연을 판매 중(ON_SALE) 상태로 전환합니다.
@@ -124,12 +132,10 @@ public class Program extends BaseUserEntity {
         this.status = ProgramStatus.ON_SALE;
     }
 
-
     public void cancel() {
         status.validateTransition(ProgramStatus.CANCELLED);
         this.status = ProgramStatus.CANCELLED;
     }
-
 
     public void close() {
         status.validateTransition(ProgramStatus.CLOSED);
@@ -174,5 +180,21 @@ public class Program extends BaseUserEntity {
      */
     public List<Schedule> getSchedules() {
         return Collections.unmodifiableList(schedules);
+    }
+
+    private static void validateProgramInfo(String title, String category, String theme, ProgramType type) {
+        // null/blank 검증
+        if (title == null || title.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_TITLE);
+        }
+        if (category == null || category.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CATEGORY);
+        }
+        if (theme == null || theme.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_THEME);
+        }
+        if (type == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_TYPE);
+        }
     }
 }

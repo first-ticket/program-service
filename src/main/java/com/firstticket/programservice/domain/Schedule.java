@@ -21,7 +21,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,12 +32,7 @@ import lombok.NoArgsConstructor;
  * 티켓 판매 기간(Sale Period)과 실제 공연 시간(Event Period)을 제어하는 핵심 도메인입니다.
  */
 @Entity
-@Table(name = "p_schedule",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_schedule_venue_time",
-        columnNames = {"venue_id", "event_start_at", "event_end_at"}
-    )
-)
+@Table(name = "p_schedule")
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -84,6 +78,7 @@ public class Schedule extends BaseUserEntity {
 
     /**
      * 회차 생성 시 시간 정당성 검증을 수행합니다.
+     * (날짜값 크기 비교)
      * 1. 행사 종료 > 행사 시작
      * 2. 판매 종료 > 판매 시작
      * 3. 행사 시작 > 판매 종료 (판매는 행사 시작 전에 마감되어야 함)
@@ -92,6 +87,9 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime eventStartAt, LocalDateTime eventEndAt,
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
         int totalCapacity) {
+        // 스케줄 필수 정보 검증
+        validateScheduleInfo(venueId, totalCapacity);
+        // 시간 정당성 검증
         validatePeriod(eventStartAt, eventEndAt, saleStartAt, saleEndAt);
         return new Schedule(
             null,
@@ -142,6 +140,12 @@ public class Schedule extends BaseUserEntity {
      */
     private static void validatePeriod(LocalDateTime eventStart, LocalDateTime eventEnd,
         LocalDateTime saleStart, LocalDateTime saleEnd) {
+        // 과거 시점 공연 등록 차단
+        // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
+        if (eventStart.isBefore(LocalDateTime.now())) {
+            throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
+        }
+
         if (!eventStart.isBefore(eventEnd)) {
             throw new ProgramException(ProgramErrorCode.INVALID_EVENT_PERIOD);
         }
@@ -150,6 +154,21 @@ public class Schedule extends BaseUserEntity {
         }
         if (!saleEnd.isBefore(eventStart)) {
             throw new ProgramException(ProgramErrorCode.SALE_END_AFTER_EVENT_START);
+        }
+    }
+
+    /**
+     * 스케줄 필수 입력 정보(venueId, totalCapacity)를 검증합니다.
+     */
+    private static void validateScheduleInfo(UUID venueId, int totalCapacity) {
+        // venueId null 검증
+        if (venueId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_VENUE_ID);
+        }
+
+        // 수용 인원 검증 — 0 이하 차단
+        if (totalCapacity <= 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
         }
     }
 }
