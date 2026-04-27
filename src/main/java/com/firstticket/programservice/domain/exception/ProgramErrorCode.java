@@ -68,7 +68,13 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_SECTION_ID(HttpStatus.BAD_REQUEST, "구역 ID는 필수입니다"),
     SECTION_CAPACITY_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY, "SEATED 타입 스케줄에는 구역별 인원을 설정할 수 없습니다"),
     SECTION_CAPACITY_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 구역입니다"),
-    SECTION_CAPACITY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 구역입니다");
+    SECTION_CAPACITY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 구역입니다"),
+    /**
+     * 구역별 인원 합계가 회차 총 수용 인원을 초과하는 경우.
+     * sectionCapacities 합계는 totalCapacity를 넘을 수 없음
+     * 초과 시 예매 가능 수 계산이 깨짐
+     */
+    SECTION_CAPACITY_EXCEEDS_TOTAL(HttpStatus.UNPROCESSABLE_ENTITY, "구역별 인원 합계가 회차 총 수용 인원을 초과할 수 없습니다");
 
     private final HttpStatus status;
     private final String message;

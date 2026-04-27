@@ -23,6 +23,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -88,7 +89,11 @@ public class Schedule extends BaseUserEntity {
     @ElementCollection
     @CollectionTable(
         name = "schedule_section_capacity",
-        joinColumns = @JoinColumn(name = "schedule_id")
+        joinColumns = @JoinColumn(name = "schedule_id"),
+        uniqueConstraints = @UniqueConstraint(
+            name = "uk_schedule_section_capacity",
+            columnNames = {"schedule_id", "section_id"}
+        )
     )
     private List<ScheduleSectionCapacity> sectionCapacities;
 
@@ -105,8 +110,10 @@ public class Schedule extends BaseUserEntity {
         int totalCapacity) {
         // 스케줄 필수 정보 검증
         validateScheduleInfo(venueId, totalCapacity);
+
         // 시간 정당성 검증
         validatePeriod(eventStartAt, eventEndAt, saleStartAt, saleEndAt);
+
         // 과거 시점 공연 등록 차단
         // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
         // 과거 시점 검증은 create()에서만, update()의 경우 과거 시점이 가능함
@@ -157,6 +164,8 @@ public class Schedule extends BaseUserEntity {
 
         // 검증 통과 후 반영
         // 검증 전 필드 변경 시 실패일 경우의 객체 상태 오염 방지
+        validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
+
         this.eventStartAt = newEventStart;
         this.eventEndAt = newEventEnd;
         this.saleStartAt = newSaleStart;
@@ -220,23 +229,31 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException 동일 구역 중복 등록 시 SECTION_CAPACITY_DUPLICATE
      */
     public void addSectionCapacity(UUID sectionId, int capacity) {
-        // sectionId null 선검증
-        if (sectionId == null) {
-            throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
-        }
-
-        // SEATED 타입은 VenueSeat 기반이므로 구역별 인원 설정 불가
+        // 1. 타입 검증 — SEATED는 이 메서드 호출 자체가 불가
         if (this.program.getType() == ProgramType.SEATED) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_ALLOWED);
         }
-        // 동일 구역 중복 등록 방지
-        // ScheduleSectionCapacity.equals()가 sectionId 기준이므로 contains() 사용 가능하나
-        // 에러 발생 순서 명확화를 위해 직접 비교
+        // 2. null 선검증
+        if (sectionId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
+        }
+        // 3. 중복 검증
         boolean isDuplicate = sectionCapacities.stream()
             .anyMatch(sc -> sc.getSectionId().equals(sectionId));
         if (isDuplicate) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_DUPLICATE);
         }
+
+        // 4. 구역별 인원 합계가 totalCapacity를 초과하지 않는지 검증
+        // 애그리거트 불변식: sectionCapacities 합계 ≤ totalCapacity
+        // 합계가 초과되면 예매 가능 수 계산이 깨짐
+        int currentTotal = sectionCapacities.stream()
+            .mapToInt(ScheduleSectionCapacity::getCapacity)
+            .sum();
+        if (currentTotal + capacity > this.totalCapacity) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_TOTAL);
+        }
+
         sectionCapacities.add(ScheduleSectionCapacity.of(sectionId, capacity));
     }
 
