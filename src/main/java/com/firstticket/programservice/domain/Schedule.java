@@ -161,10 +161,24 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newEventEnd = (eventEndAt != null) ? eventEndAt : this.eventEndAt;
         LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
+        int newTotalCapacity = (totalCapacity > 0) ? totalCapacity : this.totalCapacity;
 
         // 검증 통과 후 반영
         // 검증 전 필드 변경 시 실패일 경우의 객체 상태 오염 방지
         validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
+
+        // totalCapacity 축소 시 sectionCapacities 합계 불변식 검증
+        // sum(sectionCapacities) > newTotalCapacity 상태가 되면
+        // 예매 가능 수 계산이 깨지므로 차단한다.
+        // int → long: 오버플로우 방지
+        if (!sectionCapacities.isEmpty()) {
+            long sectionTotal = sectionCapacities.stream()
+                .mapToLong(ScheduleSectionCapacity::getCapacity)
+                .sum();
+            if (sectionTotal > newTotalCapacity) {
+                throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_LESS_THAN_SECTION_SUM);
+            }
+        }
 
         this.eventStartAt = newEventStart;
         this.eventEndAt = newEventEnd;
@@ -244,17 +258,17 @@ public class Schedule extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_DUPLICATE);
         }
 
-        // 4. 구역별 인원 합계가 totalCapacity를 초과하지 않는지 검증
-        // 애그리거트 불변식: sectionCapacities 합계 ≤ totalCapacity
-        // 합계가 초과되면 예매 가능 수 계산이 깨짐
-        int currentTotal = sectionCapacities.stream()
-            .mapToInt(ScheduleSectionCapacity::getCapacity)
+        // 4. 구역별 인원 합계 검증
+        // int → long으로 변환하여 오버플로우 방지
+        // currentTotal + capacity가 int 범위(약 21억)를 넘으면
+        // 음수로 오버플로우되어 검증이 통과되는 문제를 차단
+        long currentTotal = sectionCapacities.stream()
+            .mapToLong(ScheduleSectionCapacity::getCapacity)
             .sum();
-        if (currentTotal + capacity > this.totalCapacity) {
+        long nextTotal = currentTotal + (long)capacity;
+        if (nextTotal > this.totalCapacity) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_TOTAL);
         }
-
-        sectionCapacities.add(ScheduleSectionCapacity.of(sectionId, capacity));
     }
 
     /**
