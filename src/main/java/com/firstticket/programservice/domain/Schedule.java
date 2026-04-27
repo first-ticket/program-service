@@ -11,7 +11,9 @@ import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -77,6 +79,20 @@ public class Schedule extends BaseUserEntity {
     private List<PriceGrade> priceGrades;
 
     /**
+     * STANDING·FREE 프로그램 전용: 구역별 허용 인원 목록.
+     * SEATED 프로그램은 VenueSeat 기반이므로 이 컬렉션이 비어 있다.
+     *
+     * &#064;ElementCollection:  VO 컬렉션이므로 별도 Repository 없음
+     * CollectionTable: schedule_section_capacity 테이블에 저장
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "schedule_section_capacity",
+        joinColumns = @JoinColumn(name = "schedule_id")
+    )
+    private List<ScheduleSectionCapacity> sectionCapacities;
+
+    /**
      * 회차 생성 시 시간 정당성 검증을 수행합니다.
      * (날짜값 크기 비교)
      * 1. 행사 종료 > 행사 시작
@@ -91,13 +107,21 @@ public class Schedule extends BaseUserEntity {
         validateScheduleInfo(venueId, totalCapacity);
         // 시간 정당성 검증
         validatePeriod(eventStartAt, eventEndAt, saleStartAt, saleEndAt);
+        // 과거 시점 공연 등록 차단
+        // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
+        // 과거 시점 검증은 create()에서만, update()의 경우 과거 시점이 가능함
+        if (eventStartAt.isBefore(LocalDateTime.now())) {
+            throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
+        }
+
         return new Schedule(
             null,
             program, venueId,
             eventStartAt, eventEndAt,
             saleStartAt, saleEndAt,
             totalCapacity,
-            new ArrayList<>()
+            new ArrayList<>(),   // priceGrades
+            new ArrayList<>()    // sectionCapacities
         );
     }
 
@@ -131,12 +155,8 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
 
-        // 최종 조합값으로 기간 유효성 재검증
-        // 기존 값이 채워진 상태이므로 null 없이 안전하게 호출 가능
-        validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
-
         // 검증 통과 후 반영
-        // 검증 전 필드 변경 시 실패 시 객체 상태 오염 방지
+        // 검증 전 필드 변경 시 실패일 경우의 객체 상태 오염 방지
         this.eventStartAt = newEventStart;
         this.eventEndAt = newEventEnd;
         this.saleStartAt = newSaleStart;
@@ -147,17 +167,24 @@ public class Schedule extends BaseUserEntity {
             this.totalCapacity = totalCapacity;
     }
 
+    // ---- priceGrade 관련 ----------------------------------------
+
     /**
      * 해당 회차에 가격 등급(PriceGrade)을 추가합니다.
      * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
      */
     public void addPriceGrade(UUID sectionId, String gradeLabel, int price) {
+        // gradeLabel null/blank 선검증
+        if (gradeLabel == null || gradeLabel.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
+        }
+
         boolean isDuplicate = priceGrades.stream()
             .anyMatch(pg -> pg.getGradeLabel().equals(gradeLabel));
         if (isDuplicate) {
             throw new ProgramException(ProgramErrorCode.PRICE_GRADE_DUPLICATE);
         }
-        priceGrades.add(PriceGrade.create(this, sectionId, gradeLabel, price));
+        priceGrades.add(PriceGrade.of(this, sectionId, gradeLabel, price));
     }
 
     public void removePriceGrade(String gradeLabel) {
@@ -174,6 +201,75 @@ public class Schedule extends BaseUserEntity {
         }
     }
 
+    public List<PriceGrade> getPriceGrades() {
+        return Collections.unmodifiableList(priceGrades);
+    }
+
+    // ---- sectionCapacity 관련 ------------------------------
+
+    /**
+     * 구역별 허용 인원 추가.
+     *
+     * STANDING·FREE 타입 스케줄에서만 호출
+     * SEATED 타입은 VenueSeat 기반이므로 이 메서드 호출 불가.
+     *
+     * 호출 전 Application 계층(CreateScheduleUseCase)에서
+     * VenueClient를 통해 Section.capacity 상한 초과 여부를 사전 검증해야 함!!!!!!
+     *
+     * @throws ProgramException SEATED 타입에서 호출 시 SECTION_CAPACITY_NOT_ALLOWED
+     * @throws ProgramException 동일 구역 중복 등록 시 SECTION_CAPACITY_DUPLICATE
+     */
+    public void addSectionCapacity(UUID sectionId, int capacity) {
+        // sectionId null 선검증
+        if (sectionId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
+        }
+
+        // SEATED 타입은 VenueSeat 기반이므로 구역별 인원 설정 불가
+        if (this.program.getType() == ProgramType.SEATED) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_ALLOWED);
+        }
+        // 동일 구역 중복 등록 방지
+        // ScheduleSectionCapacity.equals()가 sectionId 기준이므로 contains() 사용 가능하나
+        // 에러 발생 순서 명확화를 위해 직접 비교
+        boolean isDuplicate = sectionCapacities.stream()
+            .anyMatch(sc -> sc.getSectionId().equals(sectionId));
+        if (isDuplicate) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_DUPLICATE);
+        }
+        sectionCapacities.add(ScheduleSectionCapacity.of(sectionId, capacity));
+    }
+
+    /**
+     * 구역별 허용 인원 제거.
+     * sectionId 기준으로 삭제
+     * 수정 없음: 삭제 후 재등록 방식으로 처리
+     *
+     * @throws ProgramException sectionId가 null인 경우 INVALID_SECTION_ID
+     * @throws ProgramException 존재하지 않는 구역인 경우 SECTION_CAPACITY_NOT_FOUND
+     */
+    public void removeSectionCapacity(UUID sectionId) {
+        // 입력값 검증 — null이면 SECTION_CAPACITY_NOT_FOUND가 아닌 INVALID_SECTION_ID로 분리
+        if (sectionId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
+        }
+        boolean removed = sectionCapacities.removeIf(
+            sc -> sc.getSectionId().equals(sectionId)
+        );
+        if (!removed) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 외부에서 컬렉션을 직접 수정하지 못하도록 UnmodifiableList로 감싸서 반환
+     */
+    public List<ScheduleSectionCapacity> getSectionCapacities() {
+        return Collections.unmodifiableList(sectionCapacities);
+    }
+
+    // ---- 판매 시각 여부 확인 편의 메서드 --------------------------
+
     /**
      * 현재 시각 기준으로 티켓 판매 가능 여부를 확인합니다.
      */
@@ -182,9 +278,7 @@ public class Schedule extends BaseUserEntity {
         return now.isAfter(saleStartAt) && now.isBefore(saleEndAt);
     }
 
-    public List<PriceGrade> getPriceGrades() {
-        return Collections.unmodifiableList(priceGrades);
-    }
+    // ----- 검증 메서드 -------------------------------------------
 
     /**
      * 기간 필드들에 대한 비즈니스 제약 조건을 검증합니다.
@@ -197,12 +291,6 @@ public class Schedule extends BaseUserEntity {
         }
         if (saleStart == null || saleEnd == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
-        }
-
-        // 과거 시점 공연 등록 차단
-        // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
-        if (eventStart.isBefore(LocalDateTime.now())) {
-            throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 
         if (!eventStart.isBefore(eventEnd)) {

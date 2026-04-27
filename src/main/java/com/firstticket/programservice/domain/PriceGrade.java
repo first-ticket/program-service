@@ -70,12 +70,14 @@ public class PriceGrade extends BaseEntity {
     @Column(nullable = false)
     private int price;
 
+    // ------ 정적 생성 메서드 -----------------------------------
+
     /**
      * Package-private: Schedule.addPriceGrade()를 통해서만 생성됩니다.
      * @param price 0원 이상의 가격만 허용 (무료 공연 가능)
      * @throws ProgramException 가격이 음수일 경우 예외 발생
      */
-    static PriceGrade create(Schedule schedule, UUID sectionId,
+    static PriceGrade of(Schedule schedule, UUID sectionId,
         String gradeLabel, int price) {
         // PriceGrade 필수 정보 검증
         validatePriceGradeInfo(price, gradeLabel);
@@ -88,6 +90,8 @@ public class PriceGrade extends BaseEntity {
 
         return new PriceGrade(null, schedule, sectionId, gradeLabel, price);
     }
+
+    // --------- 검증 메서드 -------------------------------------------------
 
     private static void validatePriceGradeInfo(int price, String gradeLabel) {
         if (price < 0)
@@ -117,6 +121,8 @@ public class PriceGrade extends BaseEntity {
             }
         }
     }
+
+    // ------- VO 동등성 검증 -------------------------------------------
 
     /**
      * id가 아닌 (scheduleId, gradeLabel) 값 기준으로 VO의 동등성을 판단합니다.

@@ -62,7 +62,13 @@ public enum ProgramErrorCode implements ErrorCode {
 
     /** 프로그램 타입에 맞지 않는 sectionId 설정을 시도할 경우 */
     SECTION_ID_REQUIRED(HttpStatus.BAD_REQUEST, "SEATED/STANDING 타입은 sectionId가 필수입니다"),
-    SECTION_ID_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "FREE 타입은 sectionId를 설정할 수 없습니다");
+    SECTION_ID_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "FREE 타입은 sectionId를 설정할 수 없습니다"),
+
+    // -- ScheduleSectionCapacity -----------
+    INVALID_SECTION_ID(HttpStatus.BAD_REQUEST, "구역 ID는 필수입니다"),
+    SECTION_CAPACITY_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY, "SEATED 타입 스케줄에는 구역별 인원을 설정할 수 없습니다"),
+    SECTION_CAPACITY_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 구역입니다"),
+    SECTION_CAPACITY_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 구역입니다");
 
     private final HttpStatus status;
     private final String message;
