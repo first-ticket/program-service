@@ -74,9 +74,7 @@ public class Schedule extends BaseUserEntity {
     @Column(nullable = false)
     private int totalCapacity;
 
-    @OneToMany(mappedBy = "schedule",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true)
+    @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PriceGrade> priceGrades;
 
     /**
@@ -87,14 +85,8 @@ public class Schedule extends BaseUserEntity {
      * CollectionTable: schedule_section_capacity 테이블에 저장
      */
     @ElementCollection
-    @CollectionTable(
-        name = "schedule_section_capacity",
-        joinColumns = @JoinColumn(name = "schedule_id"),
-        uniqueConstraints = @UniqueConstraint(
-            name = "uk_schedule_section_capacity",
-            columnNames = {"schedule_id", "section_id"}
-        )
-    )
+    @CollectionTable(name = "schedule_section_capacity", joinColumns = @JoinColumn(name = "schedule_id"), uniqueConstraints = @UniqueConstraint(name = "uk_schedule_section_capacity", columnNames = {
+        "schedule_id", "section_id"}))
     private List<ScheduleSectionCapacity> sectionCapacities;
 
     /**
@@ -104,10 +96,8 @@ public class Schedule extends BaseUserEntity {
      * 2. 판매 종료 > 판매 시작
      * 3. 행사 시작 > 판매 종료 (판매는 행사 시작 전에 마감되어야 함)
      */
-    static Schedule create(Program program, UUID venueId,
-        LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-        LocalDateTime saleStartAt, LocalDateTime saleEndAt,
-        int totalCapacity) {
+    static Schedule create(Program program, UUID venueId, LocalDateTime eventStartAt, LocalDateTime eventEndAt,
+        LocalDateTime saleStartAt, LocalDateTime saleEndAt, int totalCapacity) {
         // 스케줄 필수 정보 검증
         validateScheduleInfo(venueId, totalCapacity);
 
@@ -121,12 +111,7 @@ public class Schedule extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 
-        return new Schedule(
-            null,
-            program, venueId,
-            eventStartAt, eventEndAt,
-            saleStartAt, saleEndAt,
-            totalCapacity,
+        return new Schedule(null, program, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity,
             new ArrayList<>(),   // priceGrades
             new ArrayList<>()    // sectionCapacities
         );
@@ -139,14 +124,12 @@ public class Schedule extends BaseUserEntity {
      *   saleStartAt, saleEndAt, venueId는 예매 진행 중이므로 변경 불가
      * - CANCELLED/CLOSED: 수정 불가
      */
-    public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-        LocalDateTime saleStartAt, LocalDateTime saleEndAt,
-        UUID venueId, int totalCapacity) {
+    public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt, LocalDateTime saleStartAt,
+        LocalDateTime saleEndAt, UUID venueId, int totalCapacity) {
 
         ProgramStatus programStatus = this.program.getStatus();
 
-        if (programStatus == ProgramStatus.CANCELLED
-            || programStatus == ProgramStatus.CLOSED) {
+        if (programStatus == ProgramStatus.CANCELLED || programStatus == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_EDITABLE);
         }
 
@@ -167,14 +150,18 @@ public class Schedule extends BaseUserEntity {
         // 검증 전 필드 변경 시 실패일 경우의 객체 상태 오염 방지
         validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
 
+        // 이미 등록된 스케줄의 eventStartAt이 현재 시각보다 이전일 수 있으므로
+        // 변경하지 않는다면 과거 시점 판정을 하지 않는다.
+        if (eventStartAt != null && newEventStart.isBefore(LocalDateTime.now())) {
+            throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
+        }
+
         // totalCapacity 축소 시 sectionCapacities 합계 불변식 검증
         // sum(sectionCapacities) > newTotalCapacity 상태가 되면
         // 예매 가능 수 계산이 깨지므로 차단한다.
         // int → long: 오버플로우 방지
         if (!sectionCapacities.isEmpty()) {
-            long sectionTotal = sectionCapacities.stream()
-                .mapToLong(ScheduleSectionCapacity::getCapacity)
-                .sum();
+            long sectionTotal = sectionCapacities.stream().mapToLong(ScheduleSectionCapacity::getCapacity).sum();
             if (sectionTotal > newTotalCapacity) {
                 throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_LESS_THAN_SECTION_SUM);
             }
@@ -186,8 +173,7 @@ public class Schedule extends BaseUserEntity {
         this.saleEndAt = newSaleEnd;
         if (venueId != null)
             this.venueId = venueId;
-        if (totalCapacity > 0)
-            this.totalCapacity = totalCapacity;
+        this.totalCapacity = newTotalCapacity;
     }
 
     // ---- priceGrade 관련 ----------------------------------------
@@ -202,8 +188,7 @@ public class Schedule extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
         }
 
-        boolean isDuplicate = priceGrades.stream()
-            .anyMatch(pg -> pg.getGradeLabel().equals(gradeLabel));
+        boolean isDuplicate = priceGrades.stream().anyMatch(pg -> pg.getGradeLabel().equals(gradeLabel));
         if (isDuplicate) {
             throw new ProgramException(ProgramErrorCode.PRICE_GRADE_DUPLICATE);
         }
@@ -216,9 +201,7 @@ public class Schedule extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
         }
 
-        boolean removed = priceGrades.removeIf(
-            pg -> pg.getGradeLabel().equals(gradeLabel)
-        );
+        boolean removed = priceGrades.removeIf(pg -> pg.getGradeLabel().equals(gradeLabel));
         if (!removed) {
             throw new ProgramException(ProgramErrorCode.PRICE_GRADE_NOT_FOUND);
         }
@@ -252,8 +235,7 @@ public class Schedule extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
         }
         // 3. 중복 검증
-        boolean isDuplicate = sectionCapacities.stream()
-            .anyMatch(sc -> sc.getSectionId().equals(sectionId));
+        boolean isDuplicate = sectionCapacities.stream().anyMatch(sc -> sc.getSectionId().equals(sectionId));
         if (isDuplicate) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_DUPLICATE);
         }
@@ -262,13 +244,13 @@ public class Schedule extends BaseUserEntity {
         // int → long으로 변환하여 오버플로우 방지
         // currentTotal + capacity가 int 범위(약 21억)를 넘으면
         // 음수로 오버플로우되어 검증이 통과되는 문제를 차단
-        long currentTotal = sectionCapacities.stream()
-            .mapToLong(ScheduleSectionCapacity::getCapacity)
-            .sum();
+        long currentTotal = sectionCapacities.stream().mapToLong(ScheduleSectionCapacity::getCapacity).sum();
         long nextTotal = currentTotal + (long)capacity;
         if (nextTotal > this.totalCapacity) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_TOTAL);
         }
+
+        sectionCapacities.add(ScheduleSectionCapacity.of(sectionId, capacity));
     }
 
     /**
@@ -284,9 +266,7 @@ public class Schedule extends BaseUserEntity {
         if (sectionId == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
         }
-        boolean removed = sectionCapacities.removeIf(
-            sc -> sc.getSectionId().equals(sectionId)
-        );
+        boolean removed = sectionCapacities.removeIf(sc -> sc.getSectionId().equals(sectionId));
         if (!removed) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
         }
@@ -314,8 +294,8 @@ public class Schedule extends BaseUserEntity {
     /**
      * 기간 필드들에 대한 비즈니스 제약 조건을 검증합니다.
      */
-    private static void validatePeriod(LocalDateTime eventStart, LocalDateTime eventEnd,
-        LocalDateTime saleStart, LocalDateTime saleEnd) {
+    private static void validatePeriod(LocalDateTime eventStart, LocalDateTime eventEnd, LocalDateTime saleStart,
+        LocalDateTime saleEnd) {
         // null 선검증 추가
         if (eventStart == null || eventEnd == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_EVENT_PERIOD);
