@@ -24,6 +24,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -45,6 +46,18 @@ public class Schedule extends BaseUserEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid", updatable = false)
     private UUID id;
+
+    /**
+     * 낙관적 락 버전 필드.
+     * addSectionCapacity() 동시 호출 시 합계 불변식(sum ≤ totalCapacity) 위반 방지.
+     * 같은 Schedule을 동시에 수정하면 나중 커밋 측에서 OptimisticLockException 발생.
+     * &#064;Lock(LockModeType.PESSIMISTIC_WRITE)
+     *     &#064;Query("SELECT  s FROM Schedule s WHERE s.id = :id")
+     *     Optional<Schedule> findByIdWithLock(@Param("id") UUID id);
+     *  같은 비관적 락도 고려
+     */
+    @Version
+    private Long version;
 
     /** 부모 엔티티: 소속된 공연 정보 */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -106,12 +119,13 @@ public class Schedule extends BaseUserEntity {
 
         // 과거 시점 공연 등록 차단
         // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
-        // 과거 시점 검증은 create()에서만, update()의 경우 과거 시점이 가능함
         if (eventStartAt.isBefore(LocalDateTime.now())) {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 
-        return new Schedule(null, program, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity,
+        return new Schedule(null,
+            null,       // version ← JPA가 INSERT 시 0으로 자동 설정,
+            program, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity,
             new ArrayList<>(),   // priceGrades
             new ArrayList<>()    // sectionCapacities
         );
@@ -144,14 +158,22 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newEventEnd = (eventEndAt != null) ? eventEndAt : this.eventEndAt;
         LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
-        int newTotalCapacity = (totalCapacity > 0) ? totalCapacity : this.totalCapacity;
+        int newTotalCapacity = this.totalCapacity;
+        if (totalCapacity < 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
+
+        }
+        if (totalCapacity > 0) {
+            newTotalCapacity = totalCapacity;
+
+        }
 
         // 검증 통과 후 반영
         // 검증 전 필드 변경 시 실패일 경우의 객체 상태 오염 방지
         validatePeriod(newEventStart, newEventEnd, newSaleStart, newSaleEnd);
 
         // 이미 등록된 스케줄의 eventStartAt이 현재 시각보다 이전일 수 있으므로
-        // 변경하지 않는다면 과거 시점 판정을 하지 않는다.
+        // 변경하지 않는다면 과거 시점 판정을 하지 않음
         if (eventStartAt != null && newEventStart.isBefore(LocalDateTime.now())) {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
