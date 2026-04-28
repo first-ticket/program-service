@@ -246,7 +246,7 @@ public class Schedule extends BaseUserEntity {
      * STANDING·FREE 타입 스케줄에서만 호출
      * SEATED 타입은 VenueSeat 기반이므로 이 메서드 호출 불가.
      *
-     * 호출 전 Application 계층(CreateScheduleUseCase)에서
+     * 호출 전 Application 계층에서
      * VenueClient를 통해 Section.capacity 상한 초과 여부를 사전 검증해야 함!!!!!!
      *
      * @throws ProgramException SEATED 타입에서 호출 시 SECTION_CAPACITY_NOT_ALLOWED
@@ -292,6 +292,10 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException 존재하지 않는 구역인 경우 SECTION_CAPACITY_NOT_FOUND
      */
     public void removeSectionCapacity(UUID sectionId) {
+        if (this.program.getType() == ProgramType.SEATED) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_ALLOWED);
+        }
+
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
 
