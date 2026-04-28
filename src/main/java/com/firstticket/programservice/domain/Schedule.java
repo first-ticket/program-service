@@ -49,12 +49,13 @@ public class Schedule extends BaseUserEntity {
 
     /**
      * 낙관적 락 버전 필드.
-     * addSectionCapacity() 동시 호출 시 합계 불변식(sum ≤ totalCapacity) 위반 방지.
-     * 같은 Schedule을 동시에 수정하면 나중 커밋 측에서 OptimisticLockException 발생.
-     * &#064;Lock(LockModeType.PESSIMISTIC_WRITE)
-     *     &#064;Query("SELECT  s FROM Schedule s WHERE s.id = :id")
-     *     Optional<Schedule> findByIdWithLock(@Param("id") UUID id);
-     *  같은 비관적 락도 고려
+     *
+     * 불변식: sectionCapacities 합계 ≤ totalCapacity
+     * 이 불변식은 동시 수정 시 원자적으로 보장되어야 한다.
+     *
+     * 같은 Schedule을 동시에 수정하면 나중 커밋 측에서
+     * OptimisticLockException이 발생한다.
+     * 호출처에서 이 예외를 처리하거나 비관적 락을 추가로 고려할 수 있다.
      */
     @Version
     private Long version;
@@ -141,12 +142,10 @@ public class Schedule extends BaseUserEntity {
     public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt, LocalDateTime saleStartAt,
         LocalDateTime saleEndAt, UUID venueId, int totalCapacity) {
 
+        // 스케줄 수정 가능한 프로그램 상태인지 검증
+        validateEditable();
+
         ProgramStatus programStatus = this.program.getStatus();
-
-        if (programStatus == ProgramStatus.CANCELLED || programStatus == ProgramStatus.CLOSED) {
-            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_EDITABLE);
-        }
-
         if (programStatus != ProgramStatus.DRAFT) {
             if (saleStartAt != null || saleEndAt != null || venueId != null) {
                 throw new ProgramException(ProgramErrorCode.SCHEDULE_SALE_INFO_NOT_EDITABLE);
@@ -205,6 +204,9 @@ public class Schedule extends BaseUserEntity {
      * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
      */
     public void addPriceGrade(UUID sectionId, String gradeLabel, int price) {
+        // 스케줄 수정 가능한 프로그램 상태인지 검증
+        validateEditable();
+
         // gradeLabel null/blank 선검증
         if (gradeLabel == null || gradeLabel.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
@@ -218,6 +220,9 @@ public class Schedule extends BaseUserEntity {
     }
 
     public void removePriceGrade(String gradeLabel) {
+        // 스케줄 수정 가능한 프로그램 상태인지 검증
+        validateEditable();
+
         // 입력값 검증 — null/blank는 INVALID_GRADE_LABEL로 분리
         if (gradeLabel == null || gradeLabel.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
@@ -248,6 +253,9 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException 동일 구역 중복 등록 시 SECTION_CAPACITY_DUPLICATE
      */
     public void addSectionCapacity(UUID sectionId, int capacity) {
+        // 스케줄 수정 가능한 프로그램 상태인지 검증
+        validateEditable();
+
         // 1. 타입 검증 — SEATED는 이 메서드 호출 자체가 불가
         if (this.program.getType() == ProgramType.SEATED) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_ALLOWED);
@@ -284,6 +292,9 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException 존재하지 않는 구역인 경우 SECTION_CAPACITY_NOT_FOUND
      */
     public void removeSectionCapacity(UUID sectionId) {
+        // 스케줄 수정 가능한 프로그램 상태인지 검증
+        validateEditable();
+
         // 입력값 검증 — null이면 SECTION_CAPACITY_NOT_FOUND가 아닌 INVALID_SECTION_ID로 분리
         if (sectionId == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
@@ -349,6 +360,20 @@ public class Schedule extends BaseUserEntity {
         // 수용 인원 검증 — 0 이하 차단
         if (totalCapacity <= 0) {
             throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
+        }
+    }
+
+    /**
+     * 스케줄 수정 가능 여부를 검증하는 공통 메서드.
+     * update(), addPriceGrade(), removePriceGrade(),
+     * addSectionCapacity(), removeSectionCapacity() 진입 시 호출한다.
+     *
+     * CANCELLED·CLOSED 상태에서는 어떤 필드도 수정할 수 없다.
+     */
+    private void validateEditable() {
+        ProgramStatus status = this.program.getStatus();
+        if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_EDITABLE);
         }
     }
 }

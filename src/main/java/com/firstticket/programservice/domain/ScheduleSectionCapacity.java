@@ -70,7 +70,7 @@ public class ScheduleSectionCapacity {
     // ----- VO 동등성 비교 ------------------------------------------
 
     /**
-     * sectionId 기준으로 동등성을 판단한다.
+     * sectionId 기준으로 동등성을 판단함
      * 한 스케줄 내 동일 구역은 하나만 존재해야 하므로
      * capacity가 달라도 같은 구역이면 동일 VO로 간주
      * */

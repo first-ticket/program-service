@@ -107,6 +107,7 @@ public class Program extends BaseUserEntity {
      *      비관적 잠금 후 선검증 → 명확한 에러 메시지 반환
      *   3. Domain: 이 메서드는 기간 유효성(시작<종료)만 검증
      *      공연장 중복 여부는 Application 계층 책임
+     *
      * 공연에 새로운 회차(Schedule)를 추가합니다.
      * @throws ProgramException 공연이 취소(CANCELLED)되었거나 종료(CLOSED)된 경우 수정 불가
      */
@@ -164,7 +165,7 @@ public class Program extends BaseUserEntity {
     /**
      * 공연을 취소(CANCELLED) 상태로 전환합니다.
      * 취소 후 Kafka ProgramCancelledEvent 발행은
-     * Application 계층(CancelProgramUseCase)에서 처리
+     * Application 계층에서 처리
      * TODO: Program 취소 시 하위 Schedule도 함께 CANCELLED 처리 예정
      *       → feature/schedule-status 브랜치에서 작업
      */
@@ -176,7 +177,7 @@ public class Program extends BaseUserEntity {
     /**
      * 공연을 종료(CLOSED) 상태로 전환합니다.
      * 공연 일정이 모두 마무리된 후 운영자가 수동으로 닫거나
-     * 배치로 자동 전이한다.
+     * 배치로 자동 전이함.
      */
     public void close() {
         status.validateTransition(ProgramStatus.CLOSED);
