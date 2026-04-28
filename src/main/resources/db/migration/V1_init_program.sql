@@ -140,12 +140,13 @@ CREATE TABLE price_grade
     CONSTRAINT pk_price_grade PRIMARY KEY (id),
     CONSTRAINT fk_price_grade_schedule
         FOREIGN KEY (schedule_id) REFERENCES p_schedule (id),
-    -- 동일 스케줄 내 gradeLabel 중복 방지
-    CONSTRAINT uk_price_grade_schedule_label
-        UNIQUE (schedule_id, grade_label),
     CONSTRAINT chk_price_grade_price
         CHECK (price >= 0) -- 0원(무료 공연) 허용
 );
+
+-- partial unique index로 대체: 삭제되지 않은 행에만 유니크 보장
+CREATE UNIQUE INDEX uk_price_grade_active
+    ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;
 
 CREATE INDEX idx_price_grade_schedule_id
     ON price_grade (schedule_id);
