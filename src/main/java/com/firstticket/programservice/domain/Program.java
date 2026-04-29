@@ -207,7 +207,7 @@ public class Program extends BaseUserEntity {
         String nextTitle = (title != null) ? title : this.title;
         String nextCategory = (category != null) ? category : this.category;
         String nextTheme = (theme != null) ? theme : this.theme;
-        validateProgramInfo(title, category, theme, type, region);
+        validateProgramInfo(nextTitle, nextCategory, nextTheme, this.type, this.region);
 
         this.title = nextTitle;
         this.category = nextCategory;
