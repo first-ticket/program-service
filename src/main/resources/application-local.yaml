@@ -28,6 +28,7 @@ spring:
         locations: classpath:db/migration
         schemas: program
         default-schema: program
+        table: flyway_schema_history_program
 
     kafka:
         bootstrap-servers: localhost:9092

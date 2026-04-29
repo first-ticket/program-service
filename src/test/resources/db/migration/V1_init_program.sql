@@ -20,6 +20,7 @@ CREATE TABLE p_program
         CHECK (type IN ('SEATED', 'STANDING', 'FREE')),
     status      VARCHAR(20)  NOT NULL DEFAULT 'DRAFT'
         CHECK (status IN ('DRAFT', 'ON_SALE', 'SOLD_OUT', 'CANCELLED', 'CLOSED')),
+    region      VARCHAR(100) NOT NULL,
     poster_url  VARCHAR(2000),
     description VARCHAR(4000),
 
@@ -30,7 +31,8 @@ CREATE TABLE p_program
     deleted_at  TIMESTAMP,
     deleted_by  UUID,
 
-    CONSTRAINT pk_program PRIMARY KEY (id)
+    CONSTRAINT pk_program PRIMARY KEY (id),
+    CONSTRAINT chk_program_region_not_empty CHECK (btrim(region) <> '')
 );
 
 CREATE INDEX idx_program_category ON p_program (category);
@@ -65,7 +67,7 @@ CREATE TABLE p_schedule
     CONSTRAINT chk_schedule_sale_period
         CHECK (sale_start_at < sale_end_at),
     CONSTRAINT chk_schedule_sale_before_event
-        CHECK (sale_end_at <= event_start_at),
+        CHECK (sale_end_at < event_start_at),
 
     -- exclusion constraint 대체: 완전히 동일한 (venue_id, 시작, 종료)만 차단
     -- 범위 겹침은 Application 계층에서 검증

@@ -12,7 +12,7 @@ EXTENSION IF NOT EXISTS btree_gist;
 
 
 -- ── p_program ────────────────────────────────────────
-CREATE TABLE p_program
+CREATE TABLE IF NOT EXISTS p_program
 (
     id          UUID         NOT NULL DEFAULT gen_random_uuid(),
     title       VARCHAR(200) NOT NULL,
@@ -42,18 +42,29 @@ CREATE TABLE p_program
     CONSTRAINT chk_program_type
         CHECK (type IN ('SEATED', 'STANDING', 'FREE')),
     CONSTRAINT chk_program_status
-        CHECK (status IN ('DRAFT', 'ON_SALE', 'SOLD_OUT', 'CANCELLED', 'CLOSED'))
+        CHECK (status IN ('DRAFT', 'ON_SALE', 'SOLD_OUT', 'CANCELLED', 'CLOSED')),
+    CONSTRAINT chk_program_region_not_empty CHECK (btrim(region) <> '')
 );
 
 -- 목록 조회 필터 인덱스 (P-04)
 -- partial index: soft delete된 레코드 제외
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_category') THEN
 CREATE INDEX idx_program_category ON p_program (category) WHERE deleted_at IS NULL;
+END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_status') THEN
 CREATE INDEX idx_program_status ON p_program (status) WHERE deleted_at IS NULL;
+END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_type') THEN
 CREATE INDEX idx_program_type ON p_program (type) WHERE deleted_at IS NULL;
+END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_region') THEN
 CREATE INDEX idx_program_region ON p_program (region) WHERE deleted_at IS NULL;
+END IF;
+END $$;
 
 -- ── p_schedule ───────────────────────────────────────
-CREATE TABLE p_schedule
+CREATE TABLE IF NOT EXISTS p_schedule
 (
     id             UUID      NOT NULL DEFAULT gen_random_uuid(),
     program_id     UUID      NOT NULL,
@@ -106,22 +117,23 @@ CREATE TABLE p_schedule
         ) WHERE (deleted_at IS NULL)
 );
 
--- 프로그램별 스케줄 조회 인덱스
-CREATE INDEX idx_schedule_program_id
-    ON p_schedule (program_id) WHERE deleted_at IS NULL;
-
--- 공연장별 스케줄 조회 인덱스
+-- 프로그램별 스케줄 조회 인덱스, 공연장별 스케줄 조회 인덱스
 -- V-04 중복 검증 비관적 락 쿼리(findOverlappingSchedulesWithLock)에서 사용
-CREATE INDEX idx_schedule_venue_id
-    ON p_schedule (venue_id) WHERE deleted_at IS NULL;
-
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_program_id') THEN
+CREATE INDEX idx_schedule_program_id ON p_schedule (program_id) WHERE deleted_at IS NULL;[cite: 5]
+END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_venue_id') THEN
+CREATE INDEX idx_schedule_venue_id ON p_schedule (venue_id) WHERE deleted_at IS NULL;[cite: 5]
+END IF;
+END $$;
 
 -- ── price_grade ──────────────────────────────────────
 -- PriceGrade는 도메인 모델 상 VO이지만
 -- gradeLabel 기준 개별 삭제 쿼리가 필요하여 별도 테이블로 관리
 -- PriceGradeRepository를 별도로 두지 않음
 -- id는 DB 매핑용 기술적 PK (도메인 식별자 아님)
-CREATE TABLE price_grade
+CREATE TABLE IF NOT EXISTS price_grade
 (
     id          UUID        NOT NULL DEFAULT gen_random_uuid(),
     schedule_id UUID        NOT NULL,
@@ -146,11 +158,14 @@ CREATE TABLE price_grade
 );
 
 -- partial unique index로 대체: 삭제되지 않은 행에만 유니크 보장
-CREATE UNIQUE INDEX uk_price_grade_active
-    ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;
-
-CREATE INDEX idx_price_grade_schedule_id
-    ON price_grade (schedule_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'uk_price_grade_active') THEN
+CREATE UNIQUE INDEX uk_price_grade_active ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;[cite: 5]
+END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_price_grade_schedule_id') THEN
+CREATE INDEX idx_price_grade_schedule_id ON price_grade (schedule_id);[cite: 5]
+END IF;
+END $$;
 
 
 -- ── schedule_section_capacity ────────────────────────
@@ -162,7 +177,7 @@ CREATE INDEX idx_price_grade_schedule_id
 -- 위반 시 예매 가능 수 계산이 깨짐
 -- → addSectionCapacity() 도메인 메서드에서 합계 검증
 -- → @Version 낙관적 락으로 동시 요청 보호
-CREATE TABLE schedule_section_capacity
+CREATE TABLE IF NOT EXISTS schedule_section_capacity
 (
     schedule_id UUID NOT NULL,
 
@@ -185,5 +200,8 @@ CREATE TABLE schedule_section_capacity
         UNIQUE (schedule_id, section_id)
 );
 
-CREATE INDEX idx_ssc_schedule_id
-    ON schedule_section_capacity (schedule_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_ssc_schedule_id') THEN
+CREATE INDEX idx_ssc_schedule_id ON schedule_section_capacity (schedule_id);[cite: 5]
+END IF;
+END $$;
