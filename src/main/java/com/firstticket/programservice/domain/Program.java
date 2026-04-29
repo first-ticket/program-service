@@ -263,10 +263,12 @@ public class Program extends BaseUserEntity {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
         }
 
-        if (region.length() > 100) {
+        String normalized = region.trim();
+
+        if (normalized.length() > 100) {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
         }
-        return region.trim();
+        return normalized;
     }
 
 }
