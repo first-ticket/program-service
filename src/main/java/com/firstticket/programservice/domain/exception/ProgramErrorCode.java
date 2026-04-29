@@ -52,6 +52,8 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_PROGRAM_TYPE(HttpStatus.BAD_REQUEST,
         "프로그램 타입은 필수입니다"),
 
+    INVALID_REGION(HttpStatus.BAD_REQUEST, "지역은 필수입니다"),
+
     // --- 스케줄(Schedule) 관련 ---
     /**
      * 스케줄 없이 판매 시작(ON_SALE) 전이를 시도한 경우.

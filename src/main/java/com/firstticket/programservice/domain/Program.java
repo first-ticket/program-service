@@ -55,7 +55,14 @@ public class Program extends BaseUserEntity {
     @Column(nullable = false, length = 20)
     private ProgramStatus status;
 
-    @Column(length = 100)
+    /**
+     * 지역 정보.
+     * Venue.address에서 역정규화하여 저장
+     * Schedule 등록 시 Application 계층에서
+     * VenueClient를 통해 주소를 조회한 뒤 이 필드를 갱신
+     * 생성 이후 변경하지 않는 불변 필드
+     */
+    @Column(nullable = false, length = 100)
     private String region;  // 예: "서울", "부산" — Venue.address에서 역정규화
 
     @Column(columnDefinition = "TEXT")
@@ -84,7 +91,7 @@ public class Program extends BaseUserEntity {
     public static Program create(String title, String category, String theme,
         ProgramType type, String region, String posterUrl, String description) {
         // 프로그램 주요 정보 검증
-        validateProgramInfo(title, category, theme, type);
+        validateProgramInfo(title, category, theme, type, region);
         return new Program(
             null,
             title, category, theme,
@@ -200,7 +207,7 @@ public class Program extends BaseUserEntity {
         String nextTitle = (title != null) ? title : this.title;
         String nextCategory = (category != null) ? category : this.category;
         String nextTheme = (theme != null) ? theme : this.theme;
-        validateProgramInfo(nextTitle, nextCategory, nextTheme, this.type);
+        validateProgramInfo(title, category, theme, type, region);
 
         this.title = nextTitle;
         this.category = nextCategory;
@@ -226,7 +233,8 @@ public class Program extends BaseUserEntity {
 
     // ---------- 검증 메서드 -----------------------------------------------------
 
-    private static void validateProgramInfo(String title, String category, String theme, ProgramType type) {
+    private static void validateProgramInfo(String title, String category, String theme, ProgramType type,
+        String region) {
         // null/blank 검증
         if (title == null || title.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_TITLE);
@@ -239,6 +247,10 @@ public class Program extends BaseUserEntity {
         }
         if (type == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_TYPE);
+        }
+        // region은 생성 시점에 확정되며 이후 변경하지 않는다
+        if (region == null || region.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_REGION);
         }
     }
 }

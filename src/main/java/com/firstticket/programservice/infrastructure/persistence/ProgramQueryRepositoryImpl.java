@@ -61,12 +61,11 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
                 program.posterUrl
             )
             .orderBy(toOrderSpecifier(spec.sortField(), spec.direction()))
-            .offset(spec.pageable().getOffset())
-            .limit(spec.pageable().getPageSize())
+            // Pageable 대신 ProgramSearchSpec 원시값 사용
+            .offset(spec.getOffset())
+            .limit(spec.pageSize())
             .fetch();
 
-        // count 쿼리도 동일한 join·where 조건 사용
-        // content 쿼리와 join/where가 일치해야 페이지 정보가 정확하다
         Long total = buildBaseQuery(spec)
             .select(program.countDistinct())
             .fetchOne();
@@ -74,8 +73,8 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
         return PagedResult.of(
             content,
             total != null ? total : 0L,
-            spec.pageable().getPageNumber(),
-            spec.pageable().getPageSize()
+            spec.pageNumber(),
+            spec.pageSize()
         );
     }
 
@@ -153,14 +152,19 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
 
     /**
      * 날짜 필터 (P-04).
-     * 요청한 날짜에 eventStartAt이 포함된 스케줄이 있는 프로그램을 반환한다.
-     * 날짜 범위: date 00:00:00 ~ date 23:59:59
+     * 반열린 구간 [startOfDay, nextDayStart)으로 처리한다.
+     *
+     * 수정 이유:
+     * date.atTime(23, 59, 59) 사용 시 23:59:59.001 같은
+     * 밀리초·나노초 단위 타임스탬프가 필터에서 누락된다.
+     * nextDayStart를 exclusive 상한으로 사용하면 하루 전체를 정확히 커버한다.
      */
     private BooleanExpression dateFilter(LocalDate date) {
         if (date == null)
             return null;
         LocalDateTime startOfDay = date.atStartOfDay();
-        LocalDateTime endOfDay = date.atTime(23, 59, 59);
-        return schedule.eventStartAt.between(startOfDay, endOfDay);
+        LocalDateTime nextDayStart = date.plusDays(1).atStartOfDay();
+        return schedule.eventStartAt.goe(startOfDay)
+            .and(schedule.eventStartAt.lt(nextDayStart));
     }
 }
