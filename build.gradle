@@ -69,6 +69,7 @@ dependencies {
     // first-ticket 공통 모듈
     implementation 'com.first-ticket:common:0.0.3-SNAPSHOT'
     implementation 'com.first-ticket:common-jpa:0.0.1-SNAPSHOT'
+    implementation 'com.first-ticket:common-messaging:0.0.1-SNAPSHOT'
 
     // ── Spring Boot Core & Common ──
 //    implementation 'org.springframework.boot:spring-boot-starter-web'
