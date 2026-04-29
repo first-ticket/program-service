@@ -50,6 +50,11 @@ CREATE INDEX idx_program_category ON p_program (category) WHERE deleted_at IS NU
 CREATE INDEX idx_program_status ON p_program (status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_program_type ON p_program (type) WHERE deleted_at IS NULL;
 
+ALTER TABLE p_program
+    ADD COLUMN region VARCHAR(100) NOT NULL;
+
+CREATE INDEX idx_program_region
+    ON p_program (region) WHERE deleted_at IS NULL;
 
 -- ── p_schedule ───────────────────────────────────────
 CREATE TABLE p_schedule
