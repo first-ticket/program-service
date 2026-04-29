@@ -90,7 +90,7 @@ CREATE TABLE p_schedule
     CONSTRAINT chk_schedule_sale_period
         CHECK (sale_start_at < sale_end_at),
     CONSTRAINT chk_schedule_sale_before_event
-        CHECK (sale_end_at <= event_start_at),
+        CHECK (sale_end_at < event_start_at),
     CONSTRAINT chk_schedule_capacity
         CHECK (total_capacity > 0),
 
