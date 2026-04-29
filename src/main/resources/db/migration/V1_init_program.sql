@@ -25,6 +25,7 @@ CREATE TABLE p_program
     -- ProgramStatus: DRAFT | ON_SALE | SOLD_OUT | CANCELLED | CLOSED
     -- 상태 전이 규칙은 ProgramStatus.ALLOWED 맵에서 관리
     status      VARCHAR(20)  NOT NULL DEFAULT 'DRAFT',
+    region      VARCHAR(100) NOT NULL,
 
     poster_url  TEXT,
     description TEXT,
@@ -49,12 +50,7 @@ CREATE TABLE p_program
 CREATE INDEX idx_program_category ON p_program (category) WHERE deleted_at IS NULL;
 CREATE INDEX idx_program_status ON p_program (status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_program_type ON p_program (type) WHERE deleted_at IS NULL;
-
-ALTER TABLE p_program
-    ADD COLUMN region VARCHAR(100) NOT NULL;
-
-CREATE INDEX idx_program_region
-    ON p_program (region) WHERE deleted_at IS NULL;
+CREATE INDEX idx_program_region ON p_program (region) WHERE deleted_at IS NULL;
 
 -- ── p_schedule ───────────────────────────────────────
 CREATE TABLE p_schedule

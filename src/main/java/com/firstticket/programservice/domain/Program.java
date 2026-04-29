@@ -89,11 +89,12 @@ public class Program extends BaseUserEntity {
     public static Program create(String title, String category, String theme,
         ProgramType type, String region, String posterUrl, String description) {
         // 프로그램 주요 정보 검증
-        validateProgramInfo(title, category, theme, type, region);
+        String trimmedRegion = normalizeRegion(region);
+        validateProgramInfo(title, category, theme, type, trimmedRegion);
         return new Program(
             null,
             title, category, theme,
-            type, ProgramStatus.DRAFT, region,
+            type, ProgramStatus.DRAFT, trimmedRegion,
             posterUrl, description,
             new ArrayList<>()
         );
@@ -250,5 +251,14 @@ public class Program extends BaseUserEntity {
         if (region == null || region.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
         }
+
     }
+
+    private static String normalizeRegion(String region) {
+        if (region == null || region.isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_REGION);
+        }
+        return region.trim();
+    }
+
 }
