@@ -55,6 +55,9 @@ public class Program extends BaseUserEntity {
     @Column(nullable = false, length = 20)
     private ProgramStatus status;
 
+    @Column(length = 100)
+    private String region;  // 예: "서울", "부산" — Venue.address에서 역정규화
+
     @Column(columnDefinition = "TEXT")
     private String posterUrl;
 
@@ -79,13 +82,13 @@ public class Program extends BaseUserEntity {
      * 초기 생성 시 상태는 항상 DRAFT(초안)로 설정됩니다.
      */
     public static Program create(String title, String category, String theme,
-        ProgramType type, String posterUrl, String description) {
+        ProgramType type, String region, String posterUrl, String description) {
         // 프로그램 주요 정보 검증
         validateProgramInfo(title, category, theme, type);
         return new Program(
             null,
             title, category, theme,
-            type, ProgramStatus.DRAFT,
+            type, ProgramStatus.DRAFT, region,
             posterUrl, description,
             new ArrayList<>()
         );

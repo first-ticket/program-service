@@ -5,7 +5,6 @@ import java.util.UUID;
 
 import com.firstticket.programservice.domain.ProgramStatus;
 import com.firstticket.programservice.domain.ProgramType;
-import com.querydsl.core.annotations.QueryProjection;
 
 /**
  * 프로그램 목록 조회 결과 도메인 DTO.
@@ -21,7 +20,4 @@ public record ProgramSummaryData(
     String posterUrl,
     LocalDateTime saleStartAt  // 가장 빠른 스케줄의 판매 시작일시
 ) {
-    @QueryProjection
-    public ProgramSummaryData {
-    }
 }

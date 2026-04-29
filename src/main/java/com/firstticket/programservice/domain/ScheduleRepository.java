@@ -14,20 +14,18 @@ public interface ScheduleRepository {
     Optional<Schedule> findById(UUID id);
 
     /**
-     * 공연장 시간 범위 겹침 검증용 비관적 락 조회.
-     * 동일 venue_id에서 [eventStartAt, eventEndAt) 범위와 겹치는 스케줄 목록 반환.
-     * SELECT FOR UPDATE로 잠금하여 동시 요청 간 TOCTOU를 방지한다.
-     *
-     * DB 레벨: exclusion constraint(tsrange)가 최후 방어선
-     * Application 레벨: 이 쿼리로 명확한 에러 메시지 반환
+     * 동시성 보호 기반 공연장 일정 겹침 조회.
+     * 동일 공연장에서 [eventStartAt, eventEndAt) 범위와 겹치는 스케줄 목록을 반환한다.
+     * 중복 스케줄 등록 검증(V-04)에 사용하며, 동시 요청 간 TOCTOU를 방지한다.
      */
     List<Schedule> findOverlappingSchedulesWithLock(UUID venueId,
         LocalDateTime eventStartAt,
         LocalDateTime eventEndAt);
 
     /**
-     * sectionCapacity 추가 시 합계 불변식 보호용 비관적 락 조회.
-     * SELECT FOR UPDATE로 해당 Schedule 행을 잠금 후 반환한다.
+     * 동시성 보호 기반 단건 조회.
+     * sectionCapacity 추가 시 합계 불변식(sum ≤ totalCapacity) 보호에 사용한다.
+     * 동시 수정 요청 간 충돌을 방지한다.
      */
     Optional<Schedule> findByIdWithLock(UUID id);
 }

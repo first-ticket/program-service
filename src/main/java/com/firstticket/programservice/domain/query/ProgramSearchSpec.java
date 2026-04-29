@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
  * sortField 허용값: "title" | "category" | "saleEndAt" | "createdAt"
  * direction 허용값: "asc" | "desc"
  * 허용되지 않은 값은 QueryRepository에서 default 정렬로 fallback된다.
+ * 인스턴스 생성은 infrastructure 계층에서
+ * Projections.constructor()로 처리한다.
  */
 public record ProgramSearchSpec(
     String category,
