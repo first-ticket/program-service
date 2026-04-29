@@ -56,11 +56,9 @@ public class Program extends BaseUserEntity {
     private ProgramStatus status;
 
     /**
-     * 지역 정보.
-     * Venue.address에서 역정규화하여 저장
-     * Schedule 등록 시 Application 계층에서
-     * VenueClient를 통해 주소를 조회한 뒤 이 필드를 갱신
-     * 생성 이후 변경하지 않는 불변 필드
+     * 지역 정보 — 불변 필드.
+     * Program 생성 시점에 확정되며 이후 변경하지 않는다.
+     * 프로그램 목록 지역 필터(P-04)에 사용된다.
      */
     @Column(nullable = false, length = 100)
     private String region;  // 예: "서울", "부산" — Venue.address에서 역정규화
