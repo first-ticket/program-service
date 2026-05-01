@@ -121,10 +121,10 @@ CREATE TABLE IF NOT EXISTS p_schedule
 -- V-04 중복 검증 비관적 락 쿼리(findOverlappingSchedulesWithLock)에서 사용
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_program_id') THEN
-CREATE INDEX idx_schedule_program_id ON p_schedule (program_id) WHERE deleted_at IS NULL;[cite: 5]
+CREATE INDEX idx_schedule_program_id ON p_schedule (program_id) WHERE deleted_at IS NULL;
 END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_venue_id') THEN
-CREATE INDEX idx_schedule_venue_id ON p_schedule (venue_id) WHERE deleted_at IS NULL;[cite: 5]
+CREATE INDEX idx_schedule_venue_id ON p_schedule (venue_id) WHERE deleted_at IS NULL;
 END IF;
 END $$;
 
@@ -160,10 +160,10 @@ CREATE TABLE IF NOT EXISTS price_grade
 -- partial unique index로 대체: 삭제되지 않은 행에만 유니크 보장
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'uk_price_grade_active') THEN
-CREATE UNIQUE INDEX uk_price_grade_active ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;[cite: 5]
+CREATE UNIQUE INDEX uk_price_grade_active ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;
 END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_price_grade_schedule_id') THEN
-CREATE INDEX idx_price_grade_schedule_id ON price_grade (schedule_id);[cite: 5]
+CREATE INDEX idx_price_grade_schedule_id ON price_grade (schedule_id);
 END IF;
 END $$;
 
@@ -202,6 +202,6 @@ CREATE TABLE IF NOT EXISTS schedule_section_capacity
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_ssc_schedule_id') THEN
-CREATE INDEX idx_ssc_schedule_id ON schedule_section_capacity (schedule_id);[cite: 5]
+CREATE INDEX idx_ssc_schedule_id ON schedule_section_capacity (schedule_id);
 END IF;
 END $$;

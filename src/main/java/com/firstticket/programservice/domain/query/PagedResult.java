@@ -20,7 +20,7 @@ public record PagedResult<T>(
      * - content: null 불가, 불변 리스트로 복사 (외부 수정 방지)
      * - totalElements: 0 이상
      * - pageNumber: 0 이상
-     * - pageSize: 0 이상
+     * - pageSize: 1 이상 (페이지 메타데이터 보호)
      * - totalPages: 0 이상 (of() 팩토리에서 계산된 값 검증)
      */
     public PagedResult {
@@ -35,8 +35,8 @@ public record PagedResult<T>(
         if (pageNumber < 0) {
             throw new IllegalArgumentException("pageNumber는 0 이상이어야 합니다.");
         }
-        if (pageSize < 0) {
-            throw new IllegalArgumentException("pageSize는 0 이상이어야 합니다.");
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("pageSize는 1 이상이어야 합니다.");
         }
         if (totalPages < 0) {
             throw new IllegalArgumentException("totalPages는 0 이상이어야 합니다.");
@@ -49,8 +49,8 @@ public record PagedResult<T>(
      */
     public static <T> PagedResult<T> of(List<T> content, long totalElements,
         int pageNumber, int pageSize) {
-        int totalPages = pageSize == 0 ? 0
-            : (int)Math.ceil((double)totalElements / pageSize);
+        // pageSize가 1 이상임이 보장되므로 나눗셈이 안전
+        int totalPages = (int)Math.ceil((double)totalElements / pageSize);
         return new PagedResult<>(content, totalElements, totalPages, pageNumber, pageSize);
     }
 }

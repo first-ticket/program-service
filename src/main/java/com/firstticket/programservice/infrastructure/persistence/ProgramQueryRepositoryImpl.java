@@ -40,7 +40,7 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
     @Override
     public PagedResult<ProgramSummaryData> findBySpec(ProgramSearchSpec spec) {
 
-        List<ProgramSummaryData> content = buildBaseQuery(spec)
+        List<ProgramSummaryData> content = buildContentQuery(spec)
             .select(Projections.constructor(ProgramSummaryData.class,
                 program.id,
                 program.title,
@@ -66,9 +66,11 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
             .limit(spec.pageSize())
             .fetch();
 
-        Long total = buildBaseQuery(spec)
-            .select(program.countDistinct())
-            .fetchOne();
+        // schedule 기반 조건(dateFilter)이 있으면 join 포함
+        // 없으면 join 제외하여 불필요한 비용 방지
+        Long total = hasScheduleFilter(spec)
+            ? buildContentQuery(spec).select(program.countDistinct()).fetchOne()
+            : buildCountQuery(spec).select(program.countDistinct()).fetchOne();
 
         return PagedResult.of(
             content,
@@ -80,11 +82,8 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
 
     // ── 공통 베이스 쿼리 ──────────────────────────────────────────────
 
-    /**
-     * content 쿼리와 count 쿼리의 join·where 조건을 공통으로 관리한다.
-     * 두 쿼리 간 조건 불일치로 인한 페이지 정보 오류를 방지한다.
-     */
-    private JPAQuery<?> buildBaseQuery(ProgramSearchSpec spec) {
+    /** schedule join 포함 — dateFilter 등 schedule 기반 조건이 있을 때 사용 */
+    private JPAQuery<?> buildContentQuery(ProgramSearchSpec spec) {
         return queryFactory
             .from(program)
             .leftJoin(program.schedules, schedule)
@@ -94,6 +93,19 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
                 keywordContains(spec.keyword()),
                 regionEq(spec.region()),
                 dateFilter(spec.date())
+            );
+    }
+
+    /** schedule join 제외 — schedule 기반 조건이 없을 때 count 쿼리에 사용 */
+    private JPAQuery<?> buildCountQuery(ProgramSearchSpec spec) {
+        return queryFactory
+            .from(program)
+            .where(
+                deletedAtIsNull(),
+                categoryEq(spec.category()),
+                keywordContains(spec.keyword()),
+                regionEq(spec.region())
+                // dateFilter 제외 — schedule join 불필요
             );
     }
 
@@ -113,6 +125,13 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
      * min(saleEndAt) 집계로 결정적 정렬을 보장한다.
      */
     private OrderSpecifier<?> toOrderSpecifier(String sortField, String direction) {
+        // direction 검증
+        if (direction == null
+            || (!direction.equalsIgnoreCase("asc")
+            && !direction.equalsIgnoreCase("desc"))) {
+            return program.createdAt.desc();
+        }
+
         // null 정규화 — switch에 null이 들어오면 NPE 발생
         String field = Objects.toString(sortField, "createdAt");
         boolean isAsc = "asc".equalsIgnoreCase(direction);
@@ -138,7 +157,12 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
     }
 
     private BooleanExpression keywordContains(String keyword) {
-        return keyword != null ? program.title.containsIgnoreCase(keyword) : null;
+        if (keyword == null)
+            return null;
+        String trimmed = keyword.trim();
+        if (trimmed.isBlank())
+            return null;
+        return program.title.containsIgnoreCase(trimmed);
     }
 
     /**
@@ -166,5 +190,14 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
         LocalDateTime nextDayStart = date.plusDays(1).atStartOfDay();
         return schedule.eventStartAt.goe(startOfDay)
             .and(schedule.eventStartAt.lt(nextDayStart));
+    }
+
+    /**
+     * schedule join이 필요한 조건이 있는지 확인.
+     * 현재는 dateFilter만 schedule 기반이지만,
+     * 추후 schedule 기반 조건이 추가되면 이 메서드만 수정하면 된다.
+     */
+    private boolean hasScheduleFilter(ProgramSearchSpec spec) {
+        return spec.date() != null;
     }
 }

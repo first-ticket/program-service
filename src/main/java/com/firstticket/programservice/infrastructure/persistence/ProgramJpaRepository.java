@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.NonNull;
 
 import com.firstticket.programservice.domain.Program;
 
@@ -18,9 +19,21 @@ public interface ProgramJpaRepository extends JpaRepository<Program, UUID> {
 
     /**
      * soft delete 제외 단건 조회.
+     * JpaRepository 기본 findById()를 재정의하여
+     * deletedAt이 있는 레코드를 반환하지 않는다.
      */
-    @Query("SELECT p FROM Program p WHERE p.id = :id AND p.deletedAt IS NULL")
-    Optional<Program> findActiveById(@Param("id") UUID id);
+    @NonNull
+    @Override
+    @Query("SELECT v FROM Program v WHERE v.id = :id AND v.deletedAt IS NULL")
+        Optional<Program> findById(@NonNull @Param("id") UUID id);
+
+    @Override
+    @Query("""
+        SELECT COUNT(p) > 0 FROM Program p
+        WHERE p.id = :id
+          AND p.deletedAt IS NULL
+        """)
+    boolean existsById(@NonNull @Param("id") UUID id);
 
     /**
      * schedules 컬렉션 JOIN FETCH 조회.
