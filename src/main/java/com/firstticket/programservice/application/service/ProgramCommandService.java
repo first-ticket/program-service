@@ -60,6 +60,7 @@ public class ProgramCommandService {
      */
     public ProgramResult createProgram(UUID requesterId,
         CreateProgramCommand command) {
+        validateCreateProgramCommand(command);
         Program program = Program.create(
             command.title(),
             command.category(),
@@ -186,6 +187,7 @@ public class ProgramCommandService {
      */
     public ProgramResult createSchedule(UUID requesterId,
         CreateScheduleCommand command) {
+        validateCreateScheduleCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
@@ -225,6 +227,7 @@ public class ProgramCommandService {
      */
     public ProgramResult updateSchedule(UUID requesterId,
         UpdateScheduleCommand command) {
+        validateUpdateScheduleCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
@@ -262,6 +265,7 @@ public class ProgramCommandService {
      */
     public ProgramResult addPriceGrade(UUID requesterId,
         AddPriceGradeCommand command) {
+        validateAddPriceGradeCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
@@ -306,6 +310,7 @@ public class ProgramCommandService {
      */
     public ProgramResult addSectionCapacity(UUID requesterId,
         AddSectionCapacityCommand command) {
+        validateAddSectionCapacityCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
@@ -392,6 +397,91 @@ public class ProgramCommandService {
     private void checkOwner(Program program, UUID requesterId) {
         if (!program.getCreatedBy().equals(requesterId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+    }
+
+    // ── private 검증 메서드 ───────────────────────────────────────────────
+
+    /**
+     * 프로그램 생성 커맨드 검증.
+     * Presentation 계층의 @Valid와 이중 방어.
+     * null·blank 검증은 도메인에서도 수행하지만
+     * Application 계층에서 먼저 차단하여 명확한 에러 메시지를 반환한다.
+     */
+    private void validateCreateProgramCommand(CreateProgramCommand command) {
+        if (command.title() == null || command.title().isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_TITLE);
+        }
+        if (command.category() == null || command.category().isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CATEGORY);
+        }
+        if (command.theme() == null || command.theme().isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_THEME);
+        }
+        if (command.type() == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_TYPE);
+        }
+        if (command.region() == null || command.region().isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_REGION);
+        }
+    }
+
+    /**
+     * 스케줄 생성 커맨드 검증.
+     * venueId, 기간 필드 null 검증 및 totalCapacity 범위 검증.
+     */
+    private void validateCreateScheduleCommand(CreateScheduleCommand command) {
+        if (command.venueId() == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_VENUE_ID);
+        }
+        if (command.eventStartAt() == null || command.eventEndAt() == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_EVENT_PERIOD);
+        }
+        if (command.saleStartAt() == null || command.saleEndAt() == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
+        }
+        if (command.totalCapacity() <= 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
+        }
+    }
+
+    /**
+     * 스케줄 수정 커맨드 검증.
+     * scheduleId null 검증 및 totalCapacity 범위 검증.
+     * 기간 필드는 부분 업데이트이므로 null 허용.
+     */
+    private void validateUpdateScheduleCommand(UpdateScheduleCommand command) {
+        if (command.scheduleId() == null) {
+            throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        if (command.totalCapacity() < 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
+        }
+    }
+
+    /**
+     * 가격 등급 추가 커맨드 검증.
+     * gradeLabel null·blank 검증 및 price 범위 검증.
+     */
+    private void validateAddPriceGradeCommand(AddPriceGradeCommand command) {
+        if (command.gradeLabel() == null || command.gradeLabel().isBlank()) {
+            throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
+        }
+        if (command.price() < 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PRICE);
+        }
+    }
+
+    /**
+     * 구역별 인원 추가 커맨드 검증.
+     * sectionId null 검증 및 capacity 범위 검증.
+     */
+    private void validateAddSectionCapacityCommand(AddSectionCapacityCommand command) {
+        if (command.sectionId() == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SECTION_ID);
+        }
+        if (command.capacity() <= 0) {
+            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
         }
     }
 }

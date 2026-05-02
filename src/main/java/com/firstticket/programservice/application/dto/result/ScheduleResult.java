@@ -17,9 +17,11 @@ public record ScheduleResult(
     LocalDateTime saleStartAt,
     LocalDateTime saleEndAt,
     int totalCapacity,
+    int remainingCount,     // 좌석 서비스에서 조회한 잔여 수
     List<PriceGradeResult> priceGrades
 ) {
-    public static ScheduleResult from(Schedule schedule) {
+    // remainingCount 포함 버전 — getProgram() 단건 조회 시 사용
+    public static ScheduleResult from(Schedule schedule, int remainingCount) {
         return new ScheduleResult(
             schedule.getId(),
             schedule.getVenueId(),
@@ -28,9 +30,15 @@ public record ScheduleResult(
             schedule.getSaleStartAt(),
             schedule.getSaleEndAt(),
             schedule.getTotalCapacity(),
+            remainingCount,
             schedule.getPriceGrades().stream()
                 .map(PriceGradeResult::from)
                 .toList()
         );
+    }
+
+    // remainingCount 미포함 버전 — Command 결과 반환 시 사용 (잔여 좌석 불필요)
+    public static ScheduleResult from(Schedule schedule) {
+        return from(schedule, 0);
     }
 }

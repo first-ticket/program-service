@@ -47,19 +47,15 @@ public class ProgramQueryService {
      * 프로그램 정보 자체는 정상 반환한다.
      */
     public ProgramResult getProgram(UUID programId) {
+        validateProgramId(programId);
         Program program = programRepository.findByIdWithSchedules(programId)
             .orElseThrow(() ->
                 new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
 
-        // 회차별 잔여 좌석 수 조회
-        // 좌석 서비스 장애 시 빈 리스트로 fallback — 프로그램 조회는 정상 반환
-        List<ScheduleRemainingData> remainingCounts;
-        try {
-            remainingCounts = seatProvider.getRemainingCounts(programId);
-        } catch (Exception e) {
-            log.warn("[ProgramQueryService] 잔여 좌석 조회 실패 — programId: {}", programId);
-            remainingCounts = List.of();
-        }
+        // SeatProviderImpl에서 장애 시 빈 리스트로 fallback 처리
+        // try-catch 불필요
+        List<ScheduleRemainingData> remainingCounts =
+            seatProvider.getRemainingCounts(programId);
 
         return ProgramResult.from(program, remainingCounts);
     }
@@ -70,6 +66,7 @@ public class ProgramQueryService {
      * 권한 제한 없음 — ALL.
      */
     public PagedResult<ProgramSummaryResult> searchPrograms(ProgramSearchQuery query) {
+        validateSearchQuery(query);
         PagedResult<com.firstticket.programservice.domain.query.ProgramSummaryData> pagedData =
             programQueryRepository.findBySpec(query.toSpec());
 
@@ -81,5 +78,30 @@ public class ProgramQueryService {
             pagedData.pageNumber(),
             pagedData.pageSize()
         );
+    }
+
+    /**
+     * 단건 조회 커맨드 검증.
+     * programId null 검증.
+     */
+    private void validateProgramId(UUID programId) {
+        if (programId == null) {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 목록 조회 쿼리 검증.
+     * pageSize 범위 및 sortField 화이트리스트 검증.
+     * sortField 화이트리스트는 QueryRepository에서도 방어하지만
+     * 명확한 에러 메시지를 위해 Application 계층에서 먼저 차단한다.
+     */
+    private void validateSearchQuery(ProgramSearchQuery query) {
+        if (query.pageSize() <= 0) {
+            throw new IllegalArgumentException("pageSize는 1 이상이어야 합니다.");
+        }
+        if (query.pageNumber() < 0) {
+            throw new IllegalArgumentException("pageNumber는 0 이상이어야 합니다.");
+        }
     }
 }
