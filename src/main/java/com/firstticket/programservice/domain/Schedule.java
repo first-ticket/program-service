@@ -157,14 +157,14 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newEventEnd = (eventEndAt != null) ? eventEndAt : this.eventEndAt;
         LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
+
+        // totalCapacity 확인
         int newTotalCapacity = this.totalCapacity;
-        if (totalCapacity < 0) {
-            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
-
-        }
-        if (totalCapacity > 0) {
+        if (totalCapacity != null) {
+            if (totalCapacity <= 0) {
+                throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
+            }
             newTotalCapacity = totalCapacity;
-
         }
 
         // 검증 통과 후 반영
