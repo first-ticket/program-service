@@ -12,10 +12,10 @@ import com.firstticket.programservice.infrastructure.client.dto.SectionCapacityR
 public interface VenueClient {
 
     @GetMapping("/api/venues/{venueId}/exists")
-    void validateVenueExists(@PathVariable UUID venueId);
+    void validateVenueExists(@PathVariable("venueId") UUID venueId);
 
     @GetMapping("/api/venues/sections/{sectionId}/capacity")
-    SectionCapacityResponse getSectionCapacityResponse(@PathVariable UUID sectionId);
+    SectionCapacityResponse getSectionCapacityResponse(@PathVariable("sectionId") UUID sectionId);
 
     // TODO: Kafka 도입 시 ScheduleCreatedEvent 생성에 필요
     // @GetMapping("/api/venues/sections/infos")

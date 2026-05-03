@@ -12,4 +12,9 @@ public record AddSectionCapacityCommand(
     UUID sectionId,
     int capacity
 ) {
+    public AddSectionCapacityCommand {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity는 1 이상이어야 합니다.");
+        }
+    }
 }

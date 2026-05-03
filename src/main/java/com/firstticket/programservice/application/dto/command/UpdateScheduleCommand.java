@@ -17,6 +17,6 @@ public record UpdateScheduleCommand(
     LocalDateTime saleStartAt,
     LocalDateTime saleEndAt,
     UUID venueId,
-    int totalCapacity
+    Integer totalCapacity
 ) {
 }

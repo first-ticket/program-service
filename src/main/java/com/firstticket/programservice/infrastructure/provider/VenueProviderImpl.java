@@ -1,15 +1,14 @@
 package com.firstticket.programservice.infrastructure.provider;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.firstticket.programservice.application.dto.SectionInfo;
+import com.firstticket.programservice.domain.exception.ProgramErrorCode;
+import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.service.VenueProvider;
 import com.firstticket.programservice.infrastructure.client.VenueClient;
+import com.firstticket.programservice.infrastructure.client.dto.SectionCapacityResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,7 +25,15 @@ public class VenueProviderImpl implements VenueProvider {
 
     @Override
     public void validateVenueExists(UUID venueId) {
-        venueClient.validateVenueExists(venueId);
+        try {
+            venueClient.validateVenueExists(venueId);
+        } catch (feign.FeignException.NotFound e) {
+            // 404 → 도메인 예외로 변환
+            throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
+        } catch (feign.FeignException e) {
+            // 그 외 Feign 오류 → 인프라 예외 propagate
+            throw e;
+        }
     }
 
     // TODO: Kafka 도입 시 ScheduleCreatedEvent 생성에 필요
@@ -48,6 +55,15 @@ public class VenueProviderImpl implements VenueProvider {
 
     @Override
     public int getSectionCapacity(UUID sectionId) {
-        return venueClient.getSectionCapacityResponse(sectionId).capacity();
+        try {
+            SectionCapacityResponse response =
+                venueClient.getSectionCapacityResponse(sectionId);
+            // SectionCapacityResponse compact constructor에서 null 방어됨
+            return response.capacity();
+        } catch (feign.FeignException.NotFound e) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
+        } catch (feign.FeignException e) {
+            throw e;
+        }
     }
 }

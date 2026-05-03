@@ -10,7 +10,7 @@ public record CreateProgramCommand(
     String title,
     String category,
     String theme,
-    ProgramType type,
+    String type,
     String region,
     String posterUrl,
     String description

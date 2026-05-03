@@ -38,7 +38,8 @@ public record ProgramResult(
         Map<UUID, Integer> remainingMap = remainingCounts.stream()
             .collect(Collectors.toMap(
                 ScheduleRemainingData::scheduleId,
-                ScheduleRemainingData::remainingCount
+                ScheduleRemainingData::remainingCount,
+                (existing, incoming) -> incoming
             ));
 
         return new ProgramResult(

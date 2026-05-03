@@ -72,10 +72,13 @@ public enum ProgramErrorCode implements ErrorCode {
 
     INVALID_REGION(HttpStatus.BAD_REQUEST, "지역은 필수입니다"),
 
-    INVALID_SCHEDULE_ID(HttpStatus.BAD_REQUEST,
-        "스케줄 ID는 필수입니다"),
-
     // --- 스케줄(Schedule) 관련 ---
+
+    INVALID_SCHEDULE_ID(HttpStatus.BAD_REQUEST,
+        "유효한 스케줄 ID가 필요합니다"),  // ← 메시지 수정 — 입력 오류·미소속 양쪽에 적합
+
+    SCHEDULE_DOES_NOT_BELONG_TO_PROGRAM(HttpStatus.BAD_REQUEST,
+        "해당 스케줄은 이 프로그램에 속하지 않습니다"),
     /**
      * 스케줄 없이 판매 시작(ON_SALE) 전이를 시도한 경우.
      * 최소 한 개 이상의 스케줄이 등록되어야 publish() 호출 가능
@@ -182,6 +185,10 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_GRADE_LABEL(HttpStatus.BAD_REQUEST,
         "등급명은 필수입니다"),
 
+    // ---- 공연장 관련 ----
+    VENUE_NOT_FOUND(HttpStatus.NOT_FOUND,
+        "공연장을 찾을 수 없습니다"),
+
     /**
      * SEATED·STANDING 타입인데 sectionId가 null인 경우.
      * 두 타입은 구역별 등급 설정이 필수이므로 sectionId가 있어야 한다.
@@ -217,7 +224,7 @@ public enum ProgramErrorCode implements ErrorCode {
     SECTION_CAPACITY_DUPLICATE(HttpStatus.CONFLICT,
         "이미 등록된 구역입니다"),
 
-    /** 삭제하려는 구역이 해당 스케줄에 등록되어 있지 않은 경우 */
+    /** 구역이 해당 스케줄에 등록되어 있지 않은 경우 */
     SECTION_CAPACITY_NOT_FOUND(HttpStatus.NOT_FOUND,
         "등록되지 않은 구역입니다"),
 

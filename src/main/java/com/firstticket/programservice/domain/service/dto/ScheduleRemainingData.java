@@ -11,4 +11,12 @@ public record ScheduleRemainingData(
     UUID scheduleId,
     int remainingCount
 ) {
+    public ScheduleRemainingData {
+        if (scheduleId == null) {
+            throw new NullPointerException("scheduleId는 null일 수 없습니다.");
+        }
+        if (remainingCount < 0) {
+            throw new IllegalArgumentException("remainingCount는 0 이상이어야 합니다.");
+        }
+    }
 }

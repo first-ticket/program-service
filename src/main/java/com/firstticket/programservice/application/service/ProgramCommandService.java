@@ -1,5 +1,6 @@
 package com.firstticket.programservice.application.service;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import com.firstticket.programservice.application.dto.result.ProgramResult;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
 import com.firstticket.programservice.domain.ProgramStatus;
+import com.firstticket.programservice.domain.ProgramType;
 import com.firstticket.programservice.domain.Schedule;
 import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
@@ -60,7 +62,16 @@ public class ProgramCommandService {
      */
     public ProgramResult createProgram(CreateProgramCommand command) {
         validateCreateProgramCommand(command);
-        Program program = Program.create(command.title(), command.category(), command.theme(), command.type(),
+
+        // String → ProgramType 변환 — 잘못된 값이면 400 반환
+        ProgramType type;
+        try {
+            type = ProgramType.valueOf(command.type());
+        } catch (IllegalArgumentException e) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_TYPE);
+        }
+
+        Program program = Program.create(command.title(), command.category(), command.theme(), type,
             command.region(), command.posterUrl(), command.description());
         return ProgramResult.from(programRepository.save(program));
     }
@@ -148,6 +159,7 @@ public class ProgramCommandService {
      */
     public void deleteProgram(UUID requesterId, UUID programId) {
         Program program = findProgramOrThrow(programId);
+        checkOwner(program, requesterId);
 
         if (program.getStatus() != ProgramStatus.DRAFT) {
             if (program.getStatus() != ProgramStatus.SOLD_OUT)
@@ -156,7 +168,6 @@ public class ProgramCommandService {
             else
                 throw new ProgramException((ProgramErrorCode.PROGRAM_NOT_DELETABLE));
         }
-        checkOwner(program, requesterId);
 
         programRepository.delete(program);
     }
@@ -215,8 +226,34 @@ public class ProgramCommandService {
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
-        schedule.update(command.eventStartAt(), command.eventEndAt(), command.saleStartAt(), command.saleEndAt(),
-            command.venueId(), command.totalCapacity());
+
+        // venueId가 변경되는 경우에만 존재 여부 확인
+        if (command.venueId() != null) {
+            venueProvider.validateVenueExists(command.venueId());
+
+            // 변경된 venueId 기준으로 시간 겹침 검증
+            // 자기 자신은 제외하고 검증
+            UUID targetVenueId = command.venueId();
+            LocalDateTime targetStart = command.eventStartAt() != null
+                ? command.eventStartAt() : schedule.getEventStartAt();
+            LocalDateTime targetEnd = command.eventEndAt() != null
+                ? command.eventEndAt() : schedule.getEventEndAt();
+
+            boolean hasOverlap = scheduleRepository
+                .findOverlappingSchedulesWithLock(targetVenueId, targetStart, targetEnd)
+                .stream()
+                .anyMatch(s -> !s.getId().equals(command.scheduleId()));  // 자기 자신 제외
+
+            if (hasOverlap) {
+                throw new ProgramException(ProgramErrorCode.VENUE_TIME_CONFLICT);
+            }
+        }
+
+        schedule.update(
+            command.eventStartAt(), command.eventEndAt(),
+            command.saleStartAt(), command.saleEndAt(),
+            command.venueId(), command.totalCapacity()
+        );
         return ProgramResult.from(program);
     }
 
@@ -279,7 +316,7 @@ public class ProgramCommandService {
      *
      * 비관적 락 사용 이유:
      * 동시 요청이 메모리 중복 검사를 통과한 뒤 합계를 초과하는 race condition 방지.
-     * @Version 낙관적 락과 이중 방어 구조.
+     * &#064;Version  낙관적 락과 이중 방어 구조.
      */
     public ProgramResult addSectionCapacity(UUID requesterId, AddSectionCapacityCommand command) {
         validateAddSectionCapacityCommand(command);
@@ -297,6 +334,13 @@ public class ProgramCommandService {
         // ScheduleRepository.findByIdWithLock() 사용
         Schedule schedule = scheduleRepository.findByIdWithLock(command.scheduleId())
             .orElseThrow(() -> new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
+
+        // Schedule이 해당 Program에 속하는지 검증
+        // 다른 Program의 Schedule을 수정하는 cross-program 수정 방지
+        if (!schedule.getProgram().getId().equals(program.getId())) {
+            throw new ProgramException(
+                ProgramErrorCode.SCHEDULE_DOES_NOT_BELONG_TO_PROGRAM);
+        }
 
         schedule.addSectionCapacity(command.sectionId(), command.capacity());
         return ProgramResult.from(program);

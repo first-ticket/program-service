@@ -42,10 +42,12 @@ public class SeatProviderImpl implements SeatProvider {
                     response.remainingCount()
                 ))
                 .toList();
-        } catch (Exception e) {
+        } catch (feign.FeignException e) {
+            // 외부 서비스 통신 실패 — 빈 리스트로 fallback
             log.warn("[SeatProvider] 잔여 좌석 조회 실패 — programId: {}, error: {}",
                 programId, e.getMessage());
             return List.of();
         }
+        // 그 외 예외(매핑 오류 등)는 propagate — 내부 버그 은닉 방지
     }
 }

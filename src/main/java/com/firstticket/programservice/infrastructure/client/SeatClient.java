@@ -26,5 +26,5 @@ public interface SeatClient {
      * 좌석 서비스의 /internal/v1/seats/remaining/{programId} 호출.
      */
     @GetMapping("/internal/v1/seats/remaining/{programId}")
-    List<SeatRemainingResponse> getRemainingCounts(@PathVariable UUID programId);
+    List<SeatRemainingResponse> getRemainingCounts(@PathVariable("programId") UUID programId);
 }
