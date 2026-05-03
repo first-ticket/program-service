@@ -58,18 +58,10 @@ public class ProgramCommandService {
      *
      * TODO: Kafka 도입 시 ProgramStatusChangedEvent 발행 추가
      */
-    public ProgramResult createProgram(UUID requesterId,
-        CreateProgramCommand command) {
+    public ProgramResult createProgram(CreateProgramCommand command) {
         validateCreateProgramCommand(command);
-        Program program = Program.create(
-            command.title(),
-            command.category(),
-            command.theme(),
-            command.type(),
-            command.region(),
-            command.posterUrl(),
-            command.description()
-        );
+        Program program = Program.create(command.title(), command.category(), command.theme(), command.type(),
+            command.region(), command.posterUrl(), command.description());
         return ProgramResult.from(programRepository.save(program));
     }
 
@@ -81,18 +73,12 @@ public class ProgramCommandService {
      * ProgramResult에 schedules가 포함되므로
      * findByIdWithSchedules()로 조회한다.
      */
-    public ProgramResult updateProgramDraft(UUID requesterId,
-        UpdateProgramDraftCommand command) {
+    public ProgramResult updateProgramDraft(UUID requesterId, UpdateProgramDraftCommand command) {
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
-        program.updateDraft(
-            command.title(),
-            command.category(),
-            command.theme(),
-            command.posterUrl(),
-            command.description()
-        );
+        program.updateDraft(command.title(), command.category(), command.theme(), command.posterUrl(),
+            command.description());
         return ProgramResult.from(program);
     }
 
@@ -102,8 +88,7 @@ public class ProgramCommandService {
      * ProgramResult에 schedules가 포함되므로
      * findByIdWithSchedules()로 조회한다.
      */
-    public ProgramResult updateProgramOnSale(UUID requesterId,
-        UpdateProgramOnSaleCommand command) {
+    public ProgramResult updateProgramOnSale(UUID requesterId, UpdateProgramOnSaleCommand command) {
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
@@ -163,11 +148,16 @@ public class ProgramCommandService {
      */
     public void deleteProgram(UUID requesterId, UUID programId) {
         Program program = findProgramOrThrow(programId);
-        checkOwner(program, requesterId);
 
         if (program.getStatus() != ProgramStatus.DRAFT) {
-            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
+            if (program.getStatus() != ProgramStatus.SOLD_OUT)
+                throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_DELETABLE_IN_PROCESS);
+
+            else
+                throw new ProgramException((ProgramErrorCode.PROGRAM_NOT_DELETABLE));
         }
+        checkOwner(program, requesterId);
+
         programRepository.delete(program);
     }
 
@@ -185,8 +175,7 @@ public class ProgramCommandService {
      *   - ScheduleCreatedEvent: 좌석 서비스가 BookingSeat 생성
      *   - ProgramStatusChangedEvent: 대기열 서비스가 openAt·closeAt 갱신
      */
-    public ProgramResult createSchedule(UUID requesterId,
-        CreateScheduleCommand command) {
+    public ProgramResult createSchedule(UUID requesterId, CreateScheduleCommand command) {
         validateCreateScheduleCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
@@ -197,20 +186,15 @@ public class ProgramCommandService {
         // 2. 공연장 시간 겹침 검증
         // 비관적 락으로 동시 요청 간 TOCTOU 방지 (V-04)
         // DB 레벨 exclusion constraint(tsrange)와 이중 방어
-        boolean hasOverlap = !scheduleRepository.findOverlappingSchedulesWithLock(
-            command.venueId(), command.eventStartAt(), command.eventEndAt()
-        ).isEmpty();
+        boolean hasOverlap = !scheduleRepository.findOverlappingSchedulesWithLock(command.venueId(),
+            command.eventStartAt(), command.eventEndAt()).isEmpty();
         if (hasOverlap) {
             throw new ProgramException(ProgramErrorCode.VENUE_TIME_CONFLICT);
         }
 
         // 3. 스케줄 생성
-        program.addSchedule(
-            command.venueId(),
-            command.eventStartAt(), command.eventEndAt(),
-            command.saleStartAt(), command.saleEndAt(),
-            command.totalCapacity()
-        );
+        program.addSchedule(command.venueId(), command.eventStartAt(), command.eventEndAt(), command.saleStartAt(),
+            command.saleEndAt(), command.totalCapacity());
         programRepository.save(program);
 
         return ProgramResult.from(program);
@@ -225,18 +209,14 @@ public class ProgramCommandService {
      * TODO: Kafka 도입 시 ProgramStatusChangedEvent 발행 추가
      *   판매 기간 변경 시 대기열 서비스의 openAt·closeAt 갱신이 필요하다.
      */
-    public ProgramResult updateSchedule(UUID requesterId,
-        UpdateScheduleCommand command) {
+    public ProgramResult updateSchedule(UUID requesterId, UpdateScheduleCommand command) {
         validateUpdateScheduleCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
-        schedule.update(
-            command.eventStartAt(), command.eventEndAt(),
-            command.saleStartAt(), command.saleEndAt(),
-            command.venueId(), command.totalCapacity()
-        );
+        schedule.update(command.eventStartAt(), command.eventEndAt(), command.saleStartAt(), command.saleEndAt(),
+            command.venueId(), command.totalCapacity());
         return ProgramResult.from(program);
     }
 
@@ -263,16 +243,13 @@ public class ProgramCommandService {
      * PriceGrade는 Schedule 하위이므로
      * findByIdWithSchedules()로 schedules 컬렉션을 로딩해야 한다.
      */
-    public ProgramResult addPriceGrade(UUID requesterId,
-        AddPriceGradeCommand command) {
+    public ProgramResult addPriceGrade(UUID requesterId, AddPriceGradeCommand command) {
         validateAddPriceGradeCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
-        schedule.addPriceGrade(
-            command.sectionId(), command.gradeLabel(), command.price()
-        );
+        schedule.addPriceGrade(command.sectionId(), command.gradeLabel(), command.price());
         return ProgramResult.from(program);
     }
 
@@ -280,9 +257,7 @@ public class ProgramCommandService {
      * 가격 등급 삭제.
      * 삭제 후 재등록 방식으로 처리한다.
      */
-    public ProgramResult removePriceGrade(UUID requesterId,
-        UUID programId, UUID scheduleId,
-        String gradeLabel) {
+    public ProgramResult removePriceGrade(UUID requesterId, UUID programId, UUID scheduleId, String gradeLabel) {
         Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
 
@@ -305,11 +280,8 @@ public class ProgramCommandService {
      * 비관적 락 사용 이유:
      * 동시 요청이 메모리 중복 검사를 통과한 뒤 합계를 초과하는 race condition 방지.
      * @Version 낙관적 락과 이중 방어 구조.
-     *
-     * TODO: VenueProvider 도입 전 Section.capacity 상한 검증 스킵 가능
      */
-    public ProgramResult addSectionCapacity(UUID requesterId,
-        AddSectionCapacityCommand command) {
+    public ProgramResult addSectionCapacity(UUID requesterId, AddSectionCapacityCommand command) {
         validateAddSectionCapacityCommand(command);
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
@@ -317,16 +289,14 @@ public class ProgramCommandService {
         // Section.capacity 상한 검증
         int sectionCapacity = venueProvider.getSectionCapacity(command.sectionId());
         if (command.capacity() > sectionCapacity) {
-            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_TOTAL);
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_VENUE_LIMIT);
         }
 
         // 비관적 락으로 합계 불변식(sum ≤ totalCapacity) 보호
         // findProgramWithSchedulesOrThrow()와 별도로 락을 걸어야 하므로
         // ScheduleRepository.findByIdWithLock() 사용
-        Schedule schedule = scheduleRepository
-            .findByIdWithLock(command.scheduleId())
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
+        Schedule schedule = scheduleRepository.findByIdWithLock(command.scheduleId())
+            .orElseThrow(() -> new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
 
         schedule.addSectionCapacity(command.sectionId(), command.capacity());
         return ProgramResult.from(program);
@@ -336,9 +306,7 @@ public class ProgramCommandService {
      * 구역별 인원 삭제.
      * 삭제 후 재등록 방식으로 처리한다.
      */
-    public ProgramResult removeSectionCapacity(UUID requesterId,
-        UUID programId, UUID scheduleId,
-        UUID sectionId) {
+    public ProgramResult removeSectionCapacity(UUID requesterId, UUID programId, UUID scheduleId, UUID sectionId) {
         Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
 
@@ -357,8 +325,7 @@ public class ProgramCommandService {
      */
     private Program findProgramOrThrow(UUID programId) {
         return programRepository.findById(programId)
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
+            .orElseThrow(() -> new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
     }
 
     /**
@@ -372,8 +339,7 @@ public class ProgramCommandService {
      */
     private Program findProgramWithSchedulesOrThrow(UUID programId) {
         return programRepository.findByIdWithSchedules(programId)
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
+            .orElseThrow(() -> new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
     }
 
     /**
@@ -382,11 +348,11 @@ public class ProgramCommandService {
      * findProgramWithSchedulesOrThrow() 호출 이후에만 사용한다.
      */
     private Schedule findScheduleInProgram(Program program, UUID scheduleId) {
-        return program.getSchedules().stream()
+        return program.getSchedules()
+            .stream()
             .filter(s -> s.getId().equals(scheduleId))
             .findFirst()
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
+            .orElseThrow(() -> new ProgramException(ProgramErrorCode.INVALID_SCHEDULE_ID));
     }
 
     /**
@@ -395,6 +361,7 @@ public class ProgramCommandService {
      * ADMIN은 Controller에서 이미 통과했으므로 여기선 createdBy만 비교한다.
      */
     private void checkOwner(Program program, UUID requesterId) {
+        validateRequesterId(requesterId);
         if (!program.getCreatedBy().equals(requesterId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
@@ -423,6 +390,12 @@ public class ProgramCommandService {
         }
         if (command.region() == null || command.region().isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
+        }
+    }
+
+    private void validateRequesterId(UUID requesterId) {
+        if (requesterId == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
         }
     }
 

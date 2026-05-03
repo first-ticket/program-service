@@ -86,7 +86,7 @@ public class ProgramQueryService {
      */
     private void validateProgramId(UUID programId) {
         if (programId == null) {
-            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND);
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_ID);
         }
     }
 
@@ -97,11 +97,14 @@ public class ProgramQueryService {
      * 명확한 에러 메시지를 위해 Application 계층에서 먼저 차단한다.
      */
     private void validateSearchQuery(ProgramSearchQuery query) {
+        if (query == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SEARCH_QUERY);
+        }
         if (query.pageSize() <= 0) {
-            throw new IllegalArgumentException("pageSize는 1 이상이어야 합니다.");
+            throw new ProgramException(ProgramErrorCode.INVALID_PAGE_SIZE);
         }
         if (query.pageNumber() < 0) {
-            throw new IllegalArgumentException("pageNumber는 0 이상이어야 합니다.");
+            throw new ProgramException(ProgramErrorCode.INVALID_PAGE_NUMBER);
         }
     }
 }
