@@ -9,12 +9,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.NonNull;
 
 import com.firstticket.programservice.domain.Schedule;
 
 import jakarta.persistence.LockModeType;
 
 public interface ScheduleJpaRepository extends JpaRepository<Schedule, UUID> {
+
+    @NonNull
+    @Override
+    @Query("SELECT s FROM Schedule s WHERE s.id = :id AND s.deletedAt IS NULL")
+    Optional<Schedule> findById(@NonNull @Param("id") UUID id);
 
     /**
      * 공연장 시간 범위 겹침 검증 — 비관적 락.
@@ -42,9 +48,9 @@ public interface ScheduleJpaRepository extends JpaRepository<Schedule, UUID> {
     /**
      * sectionCapacity 추가용 비관적 락 조회.
      * 합계 불변식(sum ≤ totalCapacity) 보호.
-     * @Version 낙관적 락과 이중 방어 구조.
+     * &#064;Version  낙관적 락과 이중 방어 구조.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM Schedule s WHERE s.id = :id")
+    @Query("SELECT s FROM Schedule s WHERE s.id = :id AND s.deletedAt IS NULL")
     Optional<Schedule> findByIdWithLock(@Param("id") UUID id);
 }

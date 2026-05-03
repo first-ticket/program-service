@@ -17,6 +17,10 @@ import lombok.RequiredArgsConstructor;
 public enum ProgramErrorCode implements ErrorCode {
 
     // --- 프로그램(Program) 관련 ---
+
+    INVALID_PROGRAM_ID(HttpStatus.BAD_REQUEST,
+        "프로그램 ID는 필수입니다"),
+
     /** 요청한 식별자의 프로그램을 찾을 수 없음 */
     PROGRAM_NOT_FOUND(HttpStatus.NOT_FOUND,
         "프로그램을 찾을 수 없습니다"),
@@ -27,6 +31,20 @@ public enum ProgramErrorCode implements ErrorCode {
      */
     PROGRAM_NOT_EDITABLE(HttpStatus.UNPROCESSABLE_ENTITY,
         "현재 상태에서는 수정할 수 없습니다"),
+
+    /**
+     * 삭제가 불가한 상태에서의 삭제 시도.
+     * ON_SALE·CANCELLED 상태에서 프로그램 삭제 시도
+     */
+    PROGRAM_NOT_DELETABLE_IN_PROCESS(HttpStatus.UNPROCESSABLE_ENTITY,
+        "예매 내역이 있는 프로그램은 삭제할 수 없습니다. CANCELLED 처리 후 환불 절차를 거쳐야 합니다"),
+
+    /**
+     * 삭제가 불가한 상태에서의 삭제 시도.
+     * SOLD_OUT 상태에서 프로그램 삭제 시도
+     */
+    PROGRAM_NOT_DELETABLE(HttpStatus.UNPROCESSABLE_ENTITY,
+        "판매가 시작된 이후 CLOSE 처리를 거치지 않은 프로그램은 삭제할 수 없습니다."),
 
     /**
      * ProgramStatus 전이 규칙에 위배되는 상태 변경 시도.
@@ -55,6 +73,12 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_REGION(HttpStatus.BAD_REQUEST, "지역은 필수입니다"),
 
     // --- 스케줄(Schedule) 관련 ---
+
+    INVALID_SCHEDULE_ID(HttpStatus.BAD_REQUEST,
+        "유효한 스케줄 ID가 필요합니다"),  // ← 메시지 수정 — 입력 오류·미소속 양쪽에 적합
+
+    SCHEDULE_DOES_NOT_BELONG_TO_PROGRAM(HttpStatus.BAD_REQUEST,
+        "해당 스케줄은 이 프로그램에 속하지 않습니다"),
     /**
      * 스케줄 없이 판매 시작(ON_SALE) 전이를 시도한 경우.
      * 최소 한 개 이상의 스케줄이 등록되어야 publish() 호출 가능
@@ -161,6 +185,10 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_GRADE_LABEL(HttpStatus.BAD_REQUEST,
         "등급명은 필수입니다"),
 
+    // ---- 공연장 관련 ----
+    VENUE_NOT_FOUND(HttpStatus.NOT_FOUND,
+        "공연장을 찾을 수 없습니다"),
+
     /**
      * SEATED·STANDING 타입인데 sectionId가 null인 경우.
      * 두 타입은 구역별 등급 설정이 필수이므로 sectionId가 있어야 한다.
@@ -196,12 +224,18 @@ public enum ProgramErrorCode implements ErrorCode {
     SECTION_CAPACITY_DUPLICATE(HttpStatus.CONFLICT,
         "이미 등록된 구역입니다"),
 
-    /** 삭제하려는 구역이 해당 스케줄에 등록되어 있지 않은 경우 */
+    /** 구역이 해당 스케줄에 등록되어 있지 않은 경우 */
     SECTION_CAPACITY_NOT_FOUND(HttpStatus.NOT_FOUND,
         "등록되지 않은 구역입니다"),
 
     /**
-     * 구역별 인원 합계가 회차 총 수용 인원을 초과하는 경우.
+     * 한 구역의 수용 인원 < 한 구역에 대한 요청 인원알 경우
+     */
+    SECTION_CAPACITY_EXCEEDS_VENUE_LIMIT(HttpStatus.UNPROCESSABLE_ENTITY,
+        "요청 인원이 공연장 구역의 최대 수용 인원을 초과합니다"),
+
+    /**
+     *  모든 구역의 인원 > 회차 총 수용 인원인 경우.
      * sectionCapacities 합계는 totalCapacity를 넘을 수 없다.
      * 초과 시 예매 가능 수 계산이 깨진다.
      */
@@ -215,7 +249,17 @@ public enum ProgramErrorCode implements ErrorCode {
      * 구역별 인원을 먼저 줄인 후 totalCapacity를 수정해야 함!!!!
      */
     TOTAL_CAPACITY_LESS_THAN_SECTION_SUM(HttpStatus.UNPROCESSABLE_ENTITY,
-        "총 수용 인원이 구역별 인원 합계보다 작을 수 없습니다. 구역별 인원을 먼저 조정해주세요");
+        "총 수용 인원이 구역별 인원 합계보다 작을 수 없습니다. 구역별 인원을 먼저 조정해주세요"),
+
+    // ---- PageNation 관련 ------
+    INVALID_SEARCH_QUERY(HttpStatus.BAD_REQUEST,
+        "검색 조건은 필수입니다"),
+
+    INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST,
+        "페이지 크기는 1 이상이어야 합니다"),
+
+    INVALID_PAGE_NUMBER(HttpStatus.BAD_REQUEST,
+        "페이지 번호는 0 이상이어야 합니다");
 
     private final HttpStatus status;
     private final String message;

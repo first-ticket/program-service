@@ -140,7 +140,7 @@ public class Schedule extends BaseUserEntity {
      * - CANCELLED/CLOSED: 수정 불가
      */
     public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt, LocalDateTime saleStartAt,
-        LocalDateTime saleEndAt, UUID venueId, int totalCapacity) {
+        LocalDateTime saleEndAt, UUID venueId, Integer totalCapacity) {
 
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();

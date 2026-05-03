@@ -27,7 +27,7 @@ public class ProgramRepositoryImpl implements ProgramRepository {
 
     @Override
     public Optional<Program> findById(UUID id) {
-        return programJpaRepository.findActiveById(id);
+        return programJpaRepository.findById(id);
     }
 
     @Override
