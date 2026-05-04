@@ -2,6 +2,8 @@ package com.firstticket.programservice.domain.service;
 
 import java.util.UUID;
 
+import com.firstticket.programservice.domain.service.dto.VenueInfo;
+
 /**
  * Venue 서비스로부터 공연장·구역 정보를 조회하는 도메인 서비스 인터페이스.
  * 구현체는 infrastructure/provider/VenueProviderImpl에 위치한다.
@@ -11,6 +13,12 @@ public interface VenueProvider {
 
     /** 공연장 존재 여부 확인. 존재하지 않으면 예외를 던진다. */
     void validateVenueExists(UUID venueId);
+
+    /**
+     * 공연장 기본 정보 조회.
+     * 예매 서비스 내부 API 응답 구성 시 사용한다.
+     */
+    VenueInfo getVenueInfo(UUID venueId);
 
     /**
      * 구역 정보 일괄 조회.

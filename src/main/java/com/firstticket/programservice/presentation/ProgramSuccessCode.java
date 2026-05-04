@@ -31,7 +31,9 @@ public enum ProgramSuccessCode implements SuccessCode {
     // ---- PriceGrade --------------------------------------------------------
     PRICE_GRADE_CREATED(HttpStatus.CREATED, "가격 등급이 추가되었습니다"),
     PRICE_GRADE_DELETED(HttpStatus.OK, "가격 등급이 삭제되었습니다"),
-    PRICE_GRADE_LIST_FOUND(HttpStatus.OK, "가격 등급 목록을 조회했습니다");
+    PRICE_GRADE_LIST_FOUND(HttpStatus.OK, "가격 등급 목록을 조회했습니다"),
+
+    SCHEDULE_BOOKING_INFO_FOUND(HttpStatus.OK, "스케줄 예매 정보를 조회했습니다");
 
     private final HttpStatus status;
     private final String message;

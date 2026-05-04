@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.service.VenueProvider;
+import com.firstticket.programservice.domain.service.dto.VenueInfo;
 import com.firstticket.programservice.infrastructure.client.VenueClient;
 import com.firstticket.programservice.infrastructure.client.dto.SectionCapacityResponse;
+import com.firstticket.programservice.infrastructure.client.dto.VenueInfoResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -62,6 +64,18 @@ public class VenueProviderImpl implements VenueProvider {
             return response.capacity();
         } catch (feign.FeignException.NotFound e) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
+        } catch (feign.FeignException e) {
+            throw e;
+        }
+    }
+
+    @Override
+    public VenueInfo getVenueInfo(UUID venueId) {
+        try {
+            VenueInfoResponse response = venueClient.getVenueInfoResponse(venueId);
+            return new VenueInfo(response.name(), response.address());
+        } catch (feign.FeignException.NotFound e) {
+            throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
         } catch (feign.FeignException e) {
             throw e;
         }

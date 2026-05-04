@@ -9,14 +9,19 @@ import org.springframework.transaction.annotation.Transactional;
 import com.firstticket.programservice.application.dto.query.ProgramSearchQuery;
 import com.firstticket.programservice.application.dto.result.ProgramResult;
 import com.firstticket.programservice.application.dto.result.ProgramSummaryResult;
+import com.firstticket.programservice.application.dto.result.ScheduleBookingInfoResult;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
+import com.firstticket.programservice.domain.Schedule;
+import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.query.PagedResult;
 import com.firstticket.programservice.domain.query.ProgramQueryRepository;
 import com.firstticket.programservice.domain.service.SeatProvider;
+import com.firstticket.programservice.domain.service.VenueProvider;
 import com.firstticket.programservice.domain.service.dto.ScheduleRemainingData;
+import com.firstticket.programservice.domain.service.dto.VenueInfo;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +41,8 @@ public class ProgramQueryService {
     private final ProgramRepository programRepository;
     private final ProgramQueryRepository programQueryRepository;
     private final SeatProvider seatProvider;
+    private final ScheduleRepository scheduleRepository;
+    private final VenueProvider venueProvider;
 
     /**
      * 프로그램 단건 조회 (P-05).
@@ -78,6 +85,30 @@ public class ProgramQueryService {
             pagedData.pageNumber(),
             pagedData.pageSize()
         );
+    }
+
+    /**
+     * 예매 서비스 내부 API용 스케줄 예매 정보 조회.
+     * GET /internal/v1/programs/schedules/{scheduleId}/bookingInfo
+     *
+     * venueName, venueAddress는 VenueProvider를 통해 조회한다.
+     */
+    public ScheduleBookingInfoResult getScheduleBookingInfo(UUID scheduleId) {
+        if (scheduleId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SCHEDULE_ID);
+        }
+
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
+
+        Program program = programRepository.findById(schedule.getProgram().getId())
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
+
+        VenueInfo venueInfo = venueProvider.getVenueInfo(schedule.getVenueId());
+
+        return ScheduleBookingInfoResult.of(program, schedule, venueInfo);
     }
 
     /**
