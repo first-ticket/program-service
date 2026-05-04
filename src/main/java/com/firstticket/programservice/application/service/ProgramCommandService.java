@@ -471,7 +471,8 @@ public class ProgramCommandService {
         if (command.scheduleId() == null) {
             throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND);
         }
-        if (command.totalCapacity() < 0) {
+        // 도메인의 Schedule.update()와 일관성 유지 — 0도 차단
+        if (command.totalCapacity() != null && command.totalCapacity() <= 0) {
             throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
         }
     }

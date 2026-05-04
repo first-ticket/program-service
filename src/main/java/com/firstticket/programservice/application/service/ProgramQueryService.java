@@ -4,19 +4,26 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.firstticket.programservice.application.dto.query.ProgramSearchQuery;
 import com.firstticket.programservice.application.dto.result.ProgramResult;
 import com.firstticket.programservice.application.dto.result.ProgramSummaryResult;
+import com.firstticket.programservice.application.dto.result.ScheduleBookingInfoResult;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
+import com.firstticket.programservice.domain.ProgramStatus;
+import com.firstticket.programservice.domain.Schedule;
+import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.query.PagedResult;
 import com.firstticket.programservice.domain.query.ProgramQueryRepository;
 import com.firstticket.programservice.domain.service.SeatProvider;
+import com.firstticket.programservice.domain.service.VenueProvider;
 import com.firstticket.programservice.domain.service.dto.ScheduleRemainingData;
+import com.firstticket.programservice.domain.service.dto.VenueInfo;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +43,8 @@ public class ProgramQueryService {
     private final ProgramRepository programRepository;
     private final ProgramQueryRepository programQueryRepository;
     private final SeatProvider seatProvider;
+    private final ScheduleRepository scheduleRepository;
+    private final VenueProvider venueProvider;
 
     /**
      * 프로그램 단건 조회 (P-05).
@@ -78,6 +87,35 @@ public class ProgramQueryService {
             pagedData.pageNumber(),
             pagedData.pageSize()
         );
+    }
+
+    /**
+     * 스케줄 목록 조회 — 잔여 좌석 조회 없음.
+     * getSchedules(), getSchedule() 전용.
+     * SeatProvider 호출이 불필요한 경우 사용한다.
+     */
+    public ProgramResult getProgramWithoutRemainingCount(UUID programId) {
+        validateProgramId(programId);
+        Program program = programRepository.findByIdWithSchedules(programId)
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
+        // remainingCount 없이 반환 — SeatProvider 호출 없음
+        return ProgramResult.from(program);
+    }
+
+    /**
+     * 프로그램 상태만 조회 — 경량 조회.
+     * updateProgram()에서 상태 분기 시 사용한다.
+     * SeatProvider 호출 없이 상태값만 반환한다.
+     */
+    public ProgramStatus getProgramStatus(UUID programId) {
+        if (programId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_ID);
+        }
+        return programRepository.findById(programId)
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND))
+            .getStatus();
     }
 
     /**

@@ -40,25 +40,37 @@ CREATE TABLE IF NOT EXISTS p_program
 
     CONSTRAINT pk_program PRIMARY KEY (id),
     CONSTRAINT chk_program_type
-        CHECK (type IN ('SEATED', 'STANDING', 'FREE')),
+    CHECK (type IN ('SEATED', 'STANDING', 'FREE')),
     CONSTRAINT chk_program_status
-        CHECK (status IN ('DRAFT', 'ON_SALE', 'SOLD_OUT', 'CANCELLED', 'CLOSED')),
+    CHECK (status IN ('DRAFT', 'ON_SALE', 'SOLD_OUT', 'CANCELLED', 'CLOSED')),
     CONSTRAINT chk_program_region_not_empty CHECK (btrim(region) <> '')
-);
+    );
 
 -- 목록 조회 필터 인덱스 (P-04)
 -- partial index: soft delete된 레코드 제외
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_category') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_program_category' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_program_category ON p_program (category) WHERE deleted_at IS NULL;
 END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_status') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_program_status' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_program_status ON p_program (status) WHERE deleted_at IS NULL;
 END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_type') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_program_type' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_program_type ON p_program (type) WHERE deleted_at IS NULL;
 END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_program_region') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_program_region' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_program_region ON p_program (region) WHERE deleted_at IS NULL;
 END IF;
 END $$;
@@ -96,15 +108,15 @@ CREATE TABLE IF NOT EXISTS p_schedule
 
     CONSTRAINT pk_schedule PRIMARY KEY (id),
     CONSTRAINT fk_schedule_program
-        FOREIGN KEY (program_id) REFERENCES p_program (id),
+    FOREIGN KEY (program_id) REFERENCES p_program (id),
     CONSTRAINT chk_schedule_event_period
-        CHECK (event_start_at < event_end_at),
+    CHECK (event_start_at < event_end_at),
     CONSTRAINT chk_schedule_sale_period
-        CHECK (sale_start_at < sale_end_at),
+    CHECK (sale_start_at < sale_end_at),
     CONSTRAINT chk_schedule_sale_before_event
-        CHECK (sale_end_at < event_start_at),
+    CHECK (sale_end_at < event_start_at),
     CONSTRAINT chk_schedule_capacity
-        CHECK (total_capacity > 0),
+    CHECK (total_capacity > 0),
 
     -- 공연장 시간 범위 겹침 방지 (V-04)
     -- uk_schedule_venue_time 단순 유니크 제약 대신 exclusion constraint 사용
@@ -112,18 +124,24 @@ CREATE TABLE IF NOT EXISTS p_schedule
     --       10:00-12:00 / 11:00-13:00 처럼 겹치는 구간도 차단
     -- soft delete된 스케줄은 검증 제외
     CONSTRAINT     excl_schedule_venue_overlap EXCLUDE USING GIST (
-            venue_id WITH =,
-            tsrange(event_start_at, event_end_at, '[)') WITH &&
-        ) WHERE (deleted_at IS NULL)
-);
+                                                                      venue_id WITH =,
+                                                                      tsrange(event_start_at, event_end_at, '[)') WITH &&
+                                                           ) WHERE (deleted_at IS NULL)
+    );
 
 -- 프로그램별 스케줄 조회 인덱스, 공연장별 스케줄 조회 인덱스
 -- V-04 중복 검증 비관적 락 쿼리(findOverlappingSchedulesWithLock)에서 사용
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_program_id') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_schedule_program_id' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_schedule_program_id ON p_schedule (program_id) WHERE deleted_at IS NULL;
 END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_schedule_venue_id') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_schedule_venue_id' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_schedule_venue_id ON p_schedule (venue_id) WHERE deleted_at IS NULL;
 END IF;
 END $$;
@@ -152,17 +170,23 @@ CREATE TABLE IF NOT EXISTS price_grade
 
     CONSTRAINT pk_price_grade PRIMARY KEY (id),
     CONSTRAINT fk_price_grade_schedule
-        FOREIGN KEY (schedule_id) REFERENCES p_schedule (id),
+    FOREIGN KEY (schedule_id) REFERENCES p_schedule (id),
     CONSTRAINT chk_price_grade_price
-        CHECK (price >= 0) -- 0원(무료 공연) 허용
-);
+    CHECK (price >= 0) -- 0원(무료 공연) 허용
+    );
 
 -- partial unique index로 대체: 삭제되지 않은 행에만 유니크 보장
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'uk_price_grade_active') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'uk_price_grade_active' AND n.nspname = 'program'
+    ) THEN
 CREATE UNIQUE INDEX uk_price_grade_active ON price_grade (schedule_id, grade_label) WHERE deleted_at IS NULL;
 END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_price_grade_schedule_id') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_price_grade_schedule_id' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_price_grade_schedule_id ON price_grade (schedule_id);
 END IF;
 END $$;
@@ -190,18 +214,21 @@ CREATE TABLE IF NOT EXISTS schedule_section_capacity
     capacity    INT  NOT NULL,
 
     CONSTRAINT fk_ssc_schedule
-        FOREIGN KEY (schedule_id) REFERENCES p_schedule (id),
+    FOREIGN KEY (schedule_id) REFERENCES p_schedule (id),
     CONSTRAINT chk_ssc_capacity
-        CHECK (capacity > 0),
+    CHECK (capacity > 0),
 
     -- 동시 요청 시 중복 행 원천 차단
     -- addSectionCapacity()의 메모리 검사와 이중 방어
     CONSTRAINT uk_schedule_section_capacity
-        UNIQUE (schedule_id, section_id)
-);
+    UNIQUE (schedule_id, section_id)
+    );
 
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'idx_ssc_schedule_id') THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relname = 'idx_ssc_schedule_id' AND n.nspname = 'program'
+    ) THEN
 CREATE INDEX idx_ssc_schedule_id ON schedule_section_capacity (schedule_id);
 END IF;
 END $$;

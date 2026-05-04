@@ -17,8 +17,8 @@ public record ProgramSummaryResult(
     String title,
     String category,
     String theme,
-    ProgramType type,
-    ProgramStatus status,
+    String type,
+    String status,
     String posterUrl,
     LocalDateTime saleStartAt
 ) {

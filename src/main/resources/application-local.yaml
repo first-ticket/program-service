@@ -29,6 +29,7 @@ spring:
         schemas: program
         default-schema: program
         table: flyway_schema_history_program
+        create-schemas: true
 
     kafka:
         bootstrap-servers: localhost:9092

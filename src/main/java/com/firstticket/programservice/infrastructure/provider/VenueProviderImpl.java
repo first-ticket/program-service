@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.service.VenueProvider;
+import com.firstticket.programservice.domain.service.dto.VenueInfo;
 import com.firstticket.programservice.infrastructure.client.VenueClient;
 import com.firstticket.programservice.infrastructure.client.dto.SectionCapacityResponse;
+import com.firstticket.programservice.infrastructure.client.dto.VenueInfoResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +34,7 @@ public class VenueProviderImpl implements VenueProvider {
             throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
         } catch (feign.FeignException e) {
             // 그 외 Feign 오류 → 인프라 예외 propagate
-            throw e;
+            throw translateFeignException(e);
         }
     }
 
@@ -63,7 +65,28 @@ public class VenueProviderImpl implements VenueProvider {
         } catch (feign.FeignException.NotFound e) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
         } catch (feign.FeignException e) {
-            throw e;
+            throw translateFeignException(e);
         }
+    }
+
+    @Override
+    public VenueInfo getVenueInfo(UUID venueId) {
+        try {
+            VenueInfoResponse response = venueClient.getVenueInfoResponse(venueId);
+            return new VenueInfo(response.name(), response.address());
+        } catch (feign.FeignException.NotFound e) {
+            throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
+        } catch (feign.FeignException e) {
+            throw translateFeignException(e);
+        }
+
+    }
+
+    private ProgramException translateFeignException(feign.FeignException e) {
+        int status = e.status();
+        if (status >= 400 && status < 500) {
+            return new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_CLIENT_ERROR);
+        }
+        return new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_FAILURE);
     }
 }

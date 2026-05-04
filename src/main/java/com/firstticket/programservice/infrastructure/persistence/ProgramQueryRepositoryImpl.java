@@ -46,8 +46,8 @@ public class ProgramQueryRepositoryImpl implements ProgramQueryRepository {
                 program.title,
                 program.category,
                 program.theme,
-                program.type,
-                program.status,
+                program.type.stringValue(),     // ← enum → String
+                program.status.stringValue(),
                 program.posterUrl,
                 schedule.saleStartAt.min()
             ))
