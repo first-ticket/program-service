@@ -4,8 +4,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.firstticket.programservice.application.dto.result.ProgramSummaryResult;
-import com.firstticket.programservice.domain.ProgramStatus;
-import com.firstticket.programservice.domain.ProgramType;
 
 /**
  * 프로그램 목록 조회 응답 DTO.
@@ -14,8 +12,8 @@ public record ProgramSummaryResponse(
     UUID id,
     String title,
     String category,
-    ProgramType type,
-    ProgramStatus status,
+    String type,
+    String status,
     String posterUrl,
     LocalDateTime saleStartAt
 ) {

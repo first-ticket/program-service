@@ -24,12 +24,15 @@ public record CreateScheduleRequest(
     LocalDateTime eventStartAt,
 
     @NotNull(message = "공연 종료 일시는 필수입니다")
+    @FutureOrPresent(message = "공연 종료 일시는 현재 시각 이후여야 합니다")
     LocalDateTime eventEndAt,
 
     @NotNull(message = "판매 시작 일시는 필수입니다")
+    @FutureOrPresent(message = "판매 시작 일시는 현재 시각 이후여야 합니다")
     LocalDateTime saleStartAt,
 
     @NotNull(message = "판매 종료 일시는 필수입니다")
+    @FutureOrPresent(message = "판매 종료 일시는 현재 시각 이후여야 합니다")
     LocalDateTime saleEndAt,
 
     @Positive(message = "수용 인원은 1명 이상이어야 합니다")

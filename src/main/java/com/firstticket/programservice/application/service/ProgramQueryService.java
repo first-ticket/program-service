@@ -112,6 +112,19 @@ public class ProgramQueryService {
     }
 
     /**
+     * 스케줄 목록 조회 — 잔여 좌석 조회 없음.
+     * getSchedules(), getSchedule() 전용.
+     * SeatProvider 호출이 불필요한 경우 사용한다.
+     */
+    public ProgramResult getProgramWithoutRemainingCount(UUID programId) {
+        Program program = programRepository.findByIdWithSchedules(programId)
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
+        // remainingCount 없이 반환 — SeatProvider 호출 없음
+        return ProgramResult.from(program);
+    }
+
+    /**
      * 단건 조회 커맨드 검증.
      * programId null 검증.
      */

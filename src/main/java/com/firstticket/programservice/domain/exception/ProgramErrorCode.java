@@ -242,6 +242,8 @@ public enum ProgramErrorCode implements ErrorCode {
     SECTION_CAPACITY_EXCEEDS_TOTAL(HttpStatus.UNPROCESSABLE_ENTITY,
         "구역별 인원 합계가 회차 총 수용 인원을 초과할 수 없습니다"),
 
+    EXTERNAL_SERVICE_FAILURE(HttpStatus.SERVICE_UNAVAILABLE,
+        "외부 서비스 호출에 실패했습니다"),
     /**
      * totalCapacity 축소 시 기존 sectionCapacities 합계가
      * 새 totalCapacity보다 큰 경우.

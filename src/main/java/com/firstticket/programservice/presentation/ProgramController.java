@@ -22,6 +22,9 @@ import com.firstticket.programservice.application.dto.result.ProgramResult;
 import com.firstticket.programservice.application.dto.result.ProgramSummaryResult;
 import com.firstticket.programservice.application.service.ProgramCommandService;
 import com.firstticket.programservice.application.service.ProgramQueryService;
+import com.firstticket.programservice.domain.ProgramStatus;
+import com.firstticket.programservice.domain.exception.ProgramErrorCode;
+import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.query.PagedResult;
 import com.firstticket.programservice.presentation.dto.request.AddPriceGradeRequest;
 import com.firstticket.programservice.presentation.dto.request.CreateProgramRequest;
@@ -119,16 +122,28 @@ public class ProgramController {
     @PatchMapping("/{programId}")
     public ResponseEntity<ApiResponse<ProgramResponse>> updateProgram(
         @PathVariable UUID programId,
-        @RequestBody UpdateProgramRequest request) {
+        @RequestBody @Valid UpdateProgramRequest request) {  // ← @Valid 추가
         checkHostOrAdmin();
         UUID requesterId = AuthContext.getUserId();
 
-        // 상태 확인 후 적절한 Command로 분기
-        // 도메인에서 상태별 수정 가능 필드를 제한하므로
-        // DRAFT 커맨드로 시도 → 불가 상태면 도메인이 422 반환
-        ProgramResult result = programCommandService.updateProgramDraft(
-            requesterId, request.toDraftCommand(programId)
-        );
+        // 프로그램 상태 조회 후 분기
+        // DRAFT: 전체 필드 수정 / ON_SALE: posterUrl·description만 수정
+        ProgramResult currentProgram = programQueryService.getProgram(programId);
+        ProgramResult result;
+
+        if (currentProgram.status() == ProgramStatus.DRAFT) {
+            result = programCommandService.updateProgramDraft(
+                requesterId, request.toDraftCommand(programId)
+            );
+        } else if (currentProgram.status() == ProgramStatus.ON_SALE) {
+            // toOnSaleCommand() 내부에서 금지 필드 감지 시 422 반환
+            result = programCommandService.updateProgramOnSale(
+                requesterId, request.toOnSaleCommand(programId)
+            );
+        } else {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
+        }
+
         return ApiResponse.success(
             ProgramSuccessCode.PROGRAM_UPDATED,
             ProgramResponse.from(result)
@@ -242,7 +257,7 @@ public class ProgramController {
     @GetMapping("/{programId}/schedules")
     public ResponseEntity<ApiResponse<ProgramResponse>> getSchedules(
         @PathVariable UUID programId) {
-        ProgramResult result = programQueryService.getProgram(programId);
+        ProgramResult result = programQueryService.getProgramWithoutRemainingCount(programId);
         return ApiResponse.success(
             ProgramSuccessCode.SCHEDULE_LIST_FOUND,
             ProgramResponse.from(result)
@@ -257,7 +272,7 @@ public class ProgramController {
     public ResponseEntity<ApiResponse<ScheduleResponse>> getSchedule(
         @PathVariable UUID programId,
         @PathVariable UUID scheduleId) {
-        ProgramResult result = programQueryService.getProgram(programId);
+        ProgramResult result = programQueryService.getProgramWithoutRemainingCount(programId);
         ScheduleResponse schedule = result.schedules().stream()
             .filter(s -> s.id().equals(scheduleId))
             .map(s -> s)

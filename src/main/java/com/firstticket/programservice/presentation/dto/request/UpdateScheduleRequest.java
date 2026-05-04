@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import com.firstticket.programservice.application.dto.command.UpdateScheduleCommand;
 
+import jakarta.validation.constraints.Positive;
+
 /**
  * 스케줄 수정 요청 DTO.
  * null이면 기존 값 유지 (부분 업데이트).
@@ -16,7 +18,8 @@ public record UpdateScheduleRequest(
     LocalDateTime saleStartAt,
     LocalDateTime saleEndAt,
     UUID venueId,
-    int totalCapacity
+    @Positive(message = "수용 인원은 1명 이상이어야 합니다")
+    Integer totalCapacity   // ← primitive int → Integer
 ) {
     public UpdateScheduleCommand toCommand(UUID programId, UUID scheduleId) {
         return new UpdateScheduleCommand(
