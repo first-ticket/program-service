@@ -12,6 +12,7 @@ import com.firstticket.programservice.application.dto.result.ProgramSummaryResul
 import com.firstticket.programservice.application.dto.result.ScheduleBookingInfoResult;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
+import com.firstticket.programservice.domain.ProgramStatus;
 import com.firstticket.programservice.domain.Schedule;
 import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
@@ -122,6 +123,21 @@ public class ProgramQueryService {
                 new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
         // remainingCount 없이 반환 — SeatProvider 호출 없음
         return ProgramResult.from(program);
+    }
+
+    /**
+     * 프로그램 상태만 조회 — 경량 조회.
+     * updateProgram()에서 상태 분기 시 사용한다.
+     * SeatProvider 호출 없이 상태값만 반환한다.
+     */
+    public ProgramStatus getProgramStatus(UUID programId) {
+        if (programId == null) {
+            throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_ID);
+        }
+        return programRepository.findById(programId)
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND))
+            .getStatus();
     }
 
     /**

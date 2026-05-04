@@ -1,5 +1,6 @@
 package com.firstticket.programservice.presentation;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -122,21 +123,19 @@ public class ProgramController {
     @PatchMapping("/{programId}")
     public ResponseEntity<ApiResponse<ProgramResponse>> updateProgram(
         @PathVariable UUID programId,
-        @RequestBody @Valid UpdateProgramRequest request) {  // ← @Valid 추가
+        @RequestBody @Valid UpdateProgramRequest request) {
         checkHostOrAdmin();
         UUID requesterId = AuthContext.getUserId();
 
-        // 프로그램 상태 조회 후 분기
-        // DRAFT: 전체 필드 수정 / ON_SALE: posterUrl·description만 수정
-        ProgramResult currentProgram = programQueryService.getProgram(programId);
+        // getProgram() 대신 경량 조회 — SeatProvider 호출 불필요
+        ProgramStatus status = programQueryService.getProgramStatus(programId);
         ProgramResult result;
 
-        if (currentProgram.status() == ProgramStatus.DRAFT) {
+        if (status == ProgramStatus.DRAFT) {
             result = programCommandService.updateProgramDraft(
                 requesterId, request.toDraftCommand(programId)
             );
-        } else if (currentProgram.status() == ProgramStatus.ON_SALE) {
-            // toOnSaleCommand() 내부에서 금지 필드 감지 시 422 반환
+        } else if (status == ProgramStatus.ON_SALE) {
             result = programCommandService.updateProgramOnSale(
                 requesterId, request.toOnSaleCommand(programId)
             );
@@ -183,7 +182,7 @@ public class ProgramController {
         return ApiResponse.success(
             ProgramSuccessCode.PROGRAM_PUBLISHED,
             ProgramStatusResponse.from(programId,
-                com.firstticket.programservice.domain.ProgramStatus.ON_SALE)
+                com.firstticket.programservice.domain.ProgramStatus.ON_SALE.toString())
         );
     }
 
@@ -202,7 +201,7 @@ public class ProgramController {
         return ApiResponse.success(
             ProgramSuccessCode.PROGRAM_CANCELLED,
             ProgramStatusResponse.from(programId,
-                com.firstticket.programservice.domain.ProgramStatus.CANCELLED)
+                com.firstticket.programservice.domain.ProgramStatus.CANCELLED.toString())
         );
     }
 
@@ -221,7 +220,7 @@ public class ProgramController {
         return ApiResponse.success(
             ProgramSuccessCode.PROGRAM_CLOSED,
             ProgramStatusResponse.from(programId,
-                com.firstticket.programservice.domain.ProgramStatus.CLOSED)
+                com.firstticket.programservice.domain.ProgramStatus.CLOSED.toString())
         );
     }
 
@@ -293,7 +292,7 @@ public class ProgramController {
     public ResponseEntity<ApiResponse<ProgramResponse>> updateSchedule(
         @PathVariable UUID programId,
         @PathVariable UUID scheduleId,
-        @RequestBody UpdateScheduleRequest request) {
+        @RequestBody @Valid UpdateScheduleRequest request) {
         checkHostOrAdmin();
         UUID requesterId = AuthContext.getUserId();
 
@@ -350,20 +349,19 @@ public class ProgramController {
      * 권한: ALL
      */
     @GetMapping("/{programId}/schedules/{scheduleId}/price-grades")
-    public ResponseEntity<ApiResponse<java.util.List<PriceGradeResponse>>> getPriceGrades(
+    public ResponseEntity<ApiResponse<List<PriceGradeResponse>>> getPriceGrades(
         @PathVariable UUID programId,
         @PathVariable UUID scheduleId) {
-        ProgramResult program = programQueryService.getProgram(programId);
-        java.util.List<PriceGradeResponse> priceGrades = program.schedules().stream()
+        // getProgram() 대신 경량 조회 — SeatProvider 호출 불필요
+        ProgramResult result = programQueryService.getProgramWithoutRemainingCount(programId);
+        List<PriceGradeResponse> priceGrades = result.schedules().stream()
             .filter(s -> s.id().equals(scheduleId))
             .findFirst()
             .map(schedule -> schedule.priceGrades().stream()
-                .map(PriceGradeResponse::from)  // ← 변환 추가
+                .map(PriceGradeResponse::from)
                 .toList())
-            .orElseThrow(() -> new com.firstticket.programservice.domain.exception
-                .ProgramException(
-                com.firstticket.programservice.domain.exception
-                    .ProgramErrorCode.SCHEDULE_NOT_FOUND));
+            .orElseThrow(() ->
+                new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
         return ApiResponse.success(
             ProgramSuccessCode.PRICE_GRADE_LIST_FOUND, priceGrades
         );

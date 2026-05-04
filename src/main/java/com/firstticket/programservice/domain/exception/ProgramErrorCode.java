@@ -242,8 +242,6 @@ public enum ProgramErrorCode implements ErrorCode {
     SECTION_CAPACITY_EXCEEDS_TOTAL(HttpStatus.UNPROCESSABLE_ENTITY,
         "구역별 인원 합계가 회차 총 수용 인원을 초과할 수 없습니다"),
 
-    EXTERNAL_SERVICE_FAILURE(HttpStatus.SERVICE_UNAVAILABLE,
-        "외부 서비스 호출에 실패했습니다"),
     /**
      * totalCapacity 축소 시 기존 sectionCapacities 합계가
      * 새 totalCapacity보다 큰 경우.
@@ -261,7 +259,23 @@ public enum ProgramErrorCode implements ErrorCode {
         "페이지 크기는 1 이상이어야 합니다"),
 
     INVALID_PAGE_NUMBER(HttpStatus.BAD_REQUEST,
-        "페이지 번호는 0 이상이어야 합니다");
+        "페이지 번호는 0 이상이어야 합니다"),
+
+    // -------
+
+    /**
+     * 외부 서비스 4xx 응답 — 클라이언트 측 오류 (잘못된 요청 등)
+     * VenueProvider, SeatProvider에서 4xx 수신 시 사용
+     */
+    EXTERNAL_SERVICE_CLIENT_ERROR(HttpStatus.BAD_REQUEST,
+        "외부 서비스 요청이 올바르지 않습니다"),
+
+    /**
+     * 외부 서비스 5xx 응답 — 서버 측 오류 (서비스 불가 등)
+     * VenueProvider, SeatProvider에서 5xx 수신 시 사용
+     */
+    EXTERNAL_SERVICE_FAILURE(HttpStatus.SERVICE_UNAVAILABLE,
+        "외부 서비스 호출에 실패했습니다");
 
     private final HttpStatus status;
     private final String message;

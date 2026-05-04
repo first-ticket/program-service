@@ -34,7 +34,7 @@ public class VenueProviderImpl implements VenueProvider {
             throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
         } catch (feign.FeignException e) {
             // 그 외 Feign 오류 → 인프라 예외 propagate
-            throw new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_FAILURE);
+            throw translateFeignException(e);
         }
     }
 
@@ -65,7 +65,7 @@ public class VenueProviderImpl implements VenueProvider {
         } catch (feign.FeignException.NotFound e) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_FOUND);
         } catch (feign.FeignException e) {
-            throw new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_FAILURE);
+            throw translateFeignException(e);
         }
     }
 
@@ -77,7 +77,16 @@ public class VenueProviderImpl implements VenueProvider {
         } catch (feign.FeignException.NotFound e) {
             throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
         } catch (feign.FeignException e) {
-            throw new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_FAILURE);
+            throw translateFeignException(e);
         }
+
+    }
+
+    private ProgramException translateFeignException(feign.FeignException e) {
+        int status = e.status();
+        if (status >= 400 && status < 500) {
+            return new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_CLIENT_ERROR);
+        }
+        return new ProgramException(ProgramErrorCode.EXTERNAL_SERVICE_FAILURE);
     }
 }

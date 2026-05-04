@@ -2,10 +2,10 @@ package com.firstticket.programservice.presentation.dto.request;
 
 import java.util.UUID;
 
-import com.firstticket.common.exception.BusinessException;
-import com.firstticket.common.response.CommonErrorCode;
 import com.firstticket.programservice.application.dto.command.UpdateProgramDraftCommand;
 import com.firstticket.programservice.application.dto.command.UpdateProgramOnSaleCommand;
+import com.firstticket.programservice.domain.exception.ProgramErrorCode;
+import com.firstticket.programservice.domain.exception.ProgramException;
 
 /**
  * 프로그램 수정 요청 DTO.
@@ -36,7 +36,7 @@ public record UpdateProgramRequest(
     public UpdateProgramOnSaleCommand toOnSaleCommand(UUID programId) {
         // ON_SALE에서 수정 불가 필드 감지 — 클라이언트 오류로 즉시 차단
         if (title != null || category != null || theme != null) {
-            throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);  // ← 수정
         }
         return new UpdateProgramOnSaleCommand(programId, posterUrl, description);
     }
