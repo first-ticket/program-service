@@ -118,6 +118,7 @@ public class ProgramQueryService {
      * SeatProvider 호출이 불필요한 경우 사용한다.
      */
     public ProgramResult getProgramWithoutRemainingCount(UUID programId) {
+        validateProgramId(programId);
         Program program = programRepository.findByIdWithSchedules(programId)
             .orElseThrow(() ->
                 new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
