@@ -23,6 +23,18 @@ public interface ScheduleJpaRepository extends JpaRepository<Schedule, UUID> {
     Optional<Schedule> findById(@NonNull @Param("id") UUID id);
 
     /**
+     * program JOIN FETCH 조회.
+     * 트랜잭션 종료 후 schedule.getProgram() 접근 시 LazyInitializationException 방지.
+     */
+    @Query("""
+        SELECT s FROM Schedule s
+        JOIN FETCH s.program p
+        WHERE s.id = :id
+          AND s.deletedAt IS NULL
+        """)
+    Optional<Schedule> findByIdWithProgram(@Param("id") UUID id);
+
+    /**
      * 공연장 시간 범위 겹침 검증 — 비관적 락.
      *
      * [eventStartAt, eventEndAt) 범위와 겹치는 스케줄을 SELECT FOR UPDATE로 조회.

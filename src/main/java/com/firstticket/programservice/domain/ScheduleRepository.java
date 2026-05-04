@@ -28,4 +28,11 @@ public interface ScheduleRepository {
      * 동시 수정 요청 간 충돌을 방지한다.
      */
     Optional<Schedule> findByIdWithLock(UUID id);
+
+    /**
+     * ID로 스케줄 단건 조회 — program JOIN FETCH.
+     * ProgramInternalQueryService에서 트랜잭션 종료 후
+     * schedule.getProgram().getId() 호출 시 LazyInitializationException 방지.
+     */
+    Optional<Schedule> findByIdWithProgram(UUID id);
 }

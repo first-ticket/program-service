@@ -54,7 +54,7 @@ import lombok.RequiredArgsConstructor;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/programs")
+@RequestMapping("/api/v1/programs")
 public class ProgramController {
 
     private final ProgramCommandService programCommandService;

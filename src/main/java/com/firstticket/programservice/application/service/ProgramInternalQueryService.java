@@ -31,13 +31,15 @@ public class ProgramInternalQueryService {
         if (scheduleId == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_SCHEDULE_ID);
         }
-        // 별도 빈 호출 → 프록시 정상 작동 → 트랜잭션 적용
-        Schedule schedule = scheduleReader.findSchedule(scheduleId);
-        Program program = scheduleReader.findProgram(
-            schedule.getProgram().getId());
 
-        // 외부 호출 — 트랜잭션 밖에서 실행
+        // JOIN FETCH로 program이 이미 로딩됨
+        Schedule schedule = scheduleReader.findSchedule(scheduleId);
+
+        // 트랜잭션 종료 후에도 안전 — JOIN FETCH로 이미 로딩된 데이터
+        Program program = schedule.getProgram();
+
         VenueInfo venueInfo = venueProvider.getVenueInfo(schedule.getVenueId());
+
         return ScheduleBookingInfoResult.of(program, schedule, venueInfo);
     }
 

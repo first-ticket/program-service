@@ -32,6 +32,11 @@ public class ScheduleRepositoryImpl implements ScheduleRepository {
     }
 
     @Override
+    public Optional<Schedule> findByIdWithProgram(UUID id) {
+        return scheduleJpaRepository.findByIdWithProgram(id);
+    }
+
+    @Override
     public Optional<Schedule> findByIdWithLock(UUID id) {
         return scheduleJpaRepository.findByIdWithLock(id);
     }

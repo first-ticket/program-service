@@ -5,7 +5,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
 import com.firstticket.programservice.domain.Schedule;
 import com.firstticket.programservice.domain.ScheduleRepository;
@@ -23,15 +22,12 @@ public class ProgramScheduleReader {
     private final ScheduleRepository scheduleRepository;
     private final ProgramRepository programRepository;
 
+    @Transactional(readOnly = true)
     public Schedule findSchedule(UUID scheduleId) {
-        return scheduleRepository.findById(scheduleId)
+        // JOIN FETCH로 program을 함께 로딩하여
+        // 트랜잭션 종료 후 LazyInitializationException 방지
+        return scheduleRepository.findByIdWithProgram(scheduleId)
             .orElseThrow(() ->
                 new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
-    }
-
-    public Program findProgram(UUID programId) {
-        return programRepository.findById(programId)
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
     }
 }
