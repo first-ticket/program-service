@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.firstticket.programservice.application.dto.query.ProgramSearchQuery;
@@ -86,30 +87,6 @@ public class ProgramQueryService {
             pagedData.pageNumber(),
             pagedData.pageSize()
         );
-    }
-
-    /**
-     * 예매 서비스 내부 API용 스케줄 예매 정보 조회.
-     * GET /internal/v1/programs/schedules/{scheduleId}/bookingInfo
-     *
-     * venueName, venueAddress는 VenueProvider를 통해 조회한다.
-     */
-    public ScheduleBookingInfoResult getScheduleBookingInfo(UUID scheduleId) {
-        if (scheduleId == null) {
-            throw new ProgramException(ProgramErrorCode.INVALID_SCHEDULE_ID);
-        }
-
-        Schedule schedule = scheduleRepository.findById(scheduleId)
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND));
-
-        Program program = programRepository.findById(schedule.getProgram().getId())
-            .orElseThrow(() ->
-                new ProgramException(ProgramErrorCode.PROGRAM_NOT_FOUND));
-
-        VenueInfo venueInfo = venueProvider.getVenueInfo(schedule.getVenueId());
-
-        return ScheduleBookingInfoResult.of(program, schedule, venueInfo);
     }
 
     /**

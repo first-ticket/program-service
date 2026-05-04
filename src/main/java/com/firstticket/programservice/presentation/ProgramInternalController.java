@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.firstticket.common.response.ApiResponse;
 import com.firstticket.programservice.application.dto.result.ScheduleBookingInfoResult;
-import com.firstticket.programservice.application.service.ProgramQueryService;
+import com.firstticket.programservice.application.service.ProgramInternalQueryService;
 import com.firstticket.programservice.presentation.dto.response.ScheduleBookingInfoResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/internal/v1/programs")
 public class ProgramInternalController {
 
-    private final ProgramQueryService programQueryService;
+    private final ProgramInternalQueryService programInternalQueryService;
 
     /**
      * 스케줄 예매 정보 조회.
@@ -44,7 +44,7 @@ public class ProgramInternalController {
     public ResponseEntity<ApiResponse<ScheduleBookingInfoResponse>> getBookingInfo(
         @PathVariable("scheduleId") UUID scheduleId) {
         ScheduleBookingInfoResult result =
-            programQueryService.getScheduleBookingInfo(scheduleId);
+            programInternalQueryService.getScheduleBookingInfo(scheduleId);
         return ApiResponse.success(
             ProgramSuccessCode.SCHEDULE_BOOKING_INFO_FOUND,
             ScheduleBookingInfoResponse.from(result)
