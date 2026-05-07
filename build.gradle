@@ -101,11 +101,11 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 
-    // ── Observability (Tracing & Metrics) ──
+/*    // ── Observability (Tracing & Metrics) ──
     // Micrometer Tracing + OpenTelemetry Bridge (표준 지향)
-//    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
-//    implementation 'io.opentelemetry:opentelemetry-exporter-zipkin'
-//    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+    implementation 'io.opentelemetry:opentelemetry-exporter-zipkin'
+    implementation 'io.micrometer:micrometer-registry-prometheus'*/
 
     // ── Security ──
 //    implementation 'org.springframework.boot:spring-boot-starter-security'
