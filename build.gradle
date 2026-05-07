@@ -103,13 +103,13 @@ dependencies {
 
     // ── Observability (Tracing & Metrics) ──
     // Micrometer Tracing + OpenTelemetry Bridge (표준 지향)
-    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
-    implementation 'io.opentelemetry:opentelemetry-exporter-zipkin'
-    implementation 'io.micrometer:micrometer-registry-prometheus'
+//    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+//    implementation 'io.opentelemetry:opentelemetry-exporter-zipkin'
+//    implementation 'io.micrometer:micrometer-registry-prometheus'
 
     // ── Security ──
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+//    implementation 'org.springframework.boot:spring-boot-starter-security'
+//    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
     // ── Tools ──
     compileOnly 'org.projectlombok:lombok'
@@ -117,7 +117,7 @@ dependencies {
 
     // ── Test (Testcontainers 도입 고려) ──
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.security:spring-security-test'
+//    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
     testImplementation 'com.h2database:h2'
 

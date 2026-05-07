@@ -6,15 +6,6 @@ spring:
         activate:
             on-profile: local
 
-    datasource:
-        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_DATABASE:first_class}
-        username: ${DB_USERNAME}
-        password: ${DB_PASSWORD}
-        driver-class-name: org.postgresql.Driver
-        hikari:
-            maximum-pool-size: 5
-            minimum-idle: 2
-            connection-timeout: 30000
 
     jpa:
         hibernate:
@@ -22,14 +13,6 @@ spring:
         properties:
             hibernate:
                 show_sql: true
-
-    flyway:
-        enabled: true
-        locations: classpath:db/migration
-        schemas: program
-        default-schema: program
-        table: flyway_schema_history_program
-        create-schemas: true
 
     kafka:
         bootstrap-servers: localhost:9092
