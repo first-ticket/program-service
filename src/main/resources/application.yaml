@@ -18,28 +18,13 @@ spring:
         config:
             username: ${CONFIG_SERVER_USERNAME}
             password: ${CONFIG_SERVER_PASSWORD}
+            discovery:
+                enabled: true
+                service-id: config-server
 
     profiles:
         active: local  # 기본 로컬 실행
-
-    kafka:
-        producer:
-            key-serializer: org.apache.kafka.common.serialization.StringSerializer
-            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-            properties:
-                spring.json.add.type.headers: false
-        consumer:
-            key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-            value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-            properties:
-                spring.json.trusted.packages: "com.firstticket.*"
-            auto-offset-reset: earliest
-
-    security:
-        oauth2:
-            resourceserver:
-                jwt:
-                    issuer-uri: ${KEYCLOAK_ISSUER_URI}
+        include: kafka
 
 server:
     port: 8082
@@ -50,6 +35,8 @@ eureka:
     client:
         register-with-eureka: true
         fetch-registry: true
+        service-url:
+            defaultZone: http://${EUREKA_SERVER_URL:localhost}:8761/eureka/
 
 management:
     endpoints:
