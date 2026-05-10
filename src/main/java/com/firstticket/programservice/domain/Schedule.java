@@ -111,7 +111,7 @@ public class Schedule extends BaseUserEntity {
      * 3. 행사 시작 > 판매 종료 (판매는 행사 시작 전에 마감되어야 함)
      */
     static Schedule create(Program program, UUID venueId, LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-        LocalDateTime saleStartAt, LocalDateTime saleEndAt, int totalCapacity) {
+        LocalDateTime saleStartAt, LocalDateTime saleEndAt, int totalCapacity, LocalDateTime currentTime) {
         // 스케줄 필수 정보 검증
         validateScheduleInfo(venueId, totalCapacity);
 
@@ -120,7 +120,7 @@ public class Schedule extends BaseUserEntity {
 
         // 과거 시점 공연 등록 차단
         // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
-        if (eventStartAt.isBefore(LocalDateTime.now())) {
+        if (eventStartAt.isBefore(currentTime)) {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 
@@ -145,10 +145,9 @@ public class Schedule extends BaseUserEntity {
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
 
-        validateBeforeSaleStart(currentTime);
-
         ProgramStatus programStatus = this.program.getStatus();
         if (programStatus != ProgramStatus.DRAFT) {
+            validateBeforeSaleStart(currentTime);
             if (saleStartAt != null || saleEndAt != null || venueId != null) {
                 throw new ProgramException(ProgramErrorCode.SCHEDULE_SALE_INFO_NOT_EDITABLE);
             }
@@ -335,9 +334,8 @@ public class Schedule extends BaseUserEntity {
     /**
      * 현재 시각 기준으로 티켓 판매 가능 여부를 확인합니다.
      */
-    public boolean isWithinSalePeriod() {
-        LocalDateTime now = LocalDateTime.now();
-        return now.isAfter(saleStartAt) && now.isBefore(saleEndAt);
+    public boolean isWithinSalePeriod(LocalDateTime currentTime) {
+        return currentTime.isAfter(saleStartAt) && currentTime.isBefore(saleEndAt);
     }
 
     // ----- 검증 메서드 -------------------------------------------

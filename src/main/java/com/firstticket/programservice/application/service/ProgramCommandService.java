@@ -224,7 +224,7 @@ public class ProgramCommandService {
 
         // 3. 스케줄 생성
         program.addSchedule(command.venueId(), command.eventStartAt(), command.eventEndAt(), command.saleStartAt(),
-            command.saleEndAt(), command.totalCapacity());
+            command.saleEndAt(), command.totalCapacity(), LocalDateTime.now());
         programRepository.save(program);
 
         return ProgramResult.from(program);

@@ -123,14 +123,14 @@ public class Program extends BaseUserEntity {
     public Schedule addSchedule(UUID venueId,
         LocalDateTime eventStartAt, LocalDateTime eventEndAt,
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
-        int totalCapacity) {
+        int totalCapacity, LocalDateTime currentTime) {
         // 프로그램 상태가 CANCELLED, CLOSED 일 경우, 스케줄 추가는 불가능
         if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
         Schedule schedule = Schedule.create(
-            this, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity
-        );
+            this, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity,
+            currentTime);
         schedules.add(schedule);
         return schedule;
     }
