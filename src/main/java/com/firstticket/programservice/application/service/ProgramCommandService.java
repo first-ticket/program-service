@@ -160,17 +160,22 @@ public class ProgramCommandService {
      * 프로그램 삭제 (P-03).
      * 예매 내역이 없는 DRAFT 상태에서만 물리 삭제.
      * 상태 확인 후 삭제하고 반환값이 없으므로 findProgramOrThrow() 사용.
+     *
+     * DRAFT 이외 상태별 차단 정책:
+     * - ON_SALE·CANCELLED·CLOSED : 판매가 시작된 이후이므로 삭제 불가
+     * - SOLD_OUT                 : 매진 상태이므로 삭제 불가
      */
     public void deleteProgram(UUID requesterId, UUID programId) {
         Program program = findProgramOrThrow(programId);
         checkOwner(program, requesterId);
 
         if (program.getStatus() != ProgramStatus.DRAFT) {
-            if (program.getStatus() != ProgramStatus.SOLD_OUT)
-                throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_DELETABLE_IN_PROCESS);
-
-            else
-                throw new ProgramException((ProgramErrorCode.PROGRAM_NOT_DELETABLE));
+            // SOLD_OUT: 매진 처리된 프로그램은 삭제 불가
+            if (program.getStatus() == ProgramStatus.SOLD_OUT) {
+                throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_DELETABLE);
+            }
+            // ON_SALE·CANCELLED·CLOSED: 판매가 시작된 이후 삭제 불가
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_DELETABLE_IN_PROCESS);
         }
 
         programRepository.delete(program);
