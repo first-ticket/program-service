@@ -145,13 +145,15 @@ public class ProgramCommandService {
     /**
      * 프로그램 종료 (P-06).
      * ON_SALE·SOLD_OUT → CLOSED 전이.
-     * 상태만 변경하고 반환값이 없으므로 findProgramOrThrow() 사용.
-     * 이벤트를 따로 수신하지 않고, 관리자 및 주최자 임의로 변경 또는 배치로 자동 전이
+     * 모든 스케줄의 공연 종료 시각이 현재 시각 이전인지 확인한다.
+     * 하나라도 아직 끝나지 않은 스케줄이 있으면 CLOSED 전환을 차단한다.
      */
     public void closeProgram(UUID requesterId, UUID programId) {
-        Program program = findProgramOrThrow(programId);
+        Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
-        program.close();
+
+        // now()를 도메인 메서드에 주입
+        program.close(LocalDateTime.now());
     }
 
     /**
@@ -269,7 +271,8 @@ public class ProgramCommandService {
         schedule.update(
             command.eventStartAt(), command.eventEndAt(),
             command.saleStartAt(), command.saleEndAt(),
-            command.venueId(), command.totalCapacity()
+            command.venueId(), command.totalCapacity(),
+            LocalDateTime.now()
         );
         return ProgramResult.from(program);
     }
@@ -296,6 +299,9 @@ public class ProgramCommandService {
      * - FREE: sectionId null
      * PriceGrade는 Schedule 하위이므로
      * findByIdWithSchedules()로 schedules 컬렉션을 로딩해야 한다.
+     *
+     * now()를 도메인 메서드에 주입하여 예매 시작 전 여부를 도메인에서 검증한다.
+     * LocalDateTime.now()는 Application 계층의 책임으로 한정한다.
      */
     public ProgramResult addPriceGrade(UUID requesterId, AddPriceGradeCommand command) {
         validateAddPriceGradeCommand(command);
@@ -304,19 +310,23 @@ public class ProgramCommandService {
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
 
-        // sectionId가 있는 타입(SEATED·STANDING)에서만 호출
         if (command.sectionId() != null) {
             SectionValidationData sectionValidation =
                 venueProvider.validateSection(schedule.getVenueId(), command.sectionId());
 
-            // section의 SeatType과 program의 ProgramType 일치 여부 검증
-            // ex) SEATED 프로그램에 STANDING 구역을 등록하는 경우 차단
             if (!sectionValidation.seatType().equals(program.getType().name())) {
                 throw new ProgramException(ProgramErrorCode.SECTION_TYPE_MISMATCH);
             }
         }
 
-        schedule.addPriceGrade(command.sectionId(), command.gradeLabel(), command.price());
+        // now()를 도메인 메서드에 주입 — 도메인이 직접 now()를 참조하지 않도록 한다
+        schedule.addPriceGrade(
+            command.sectionId(),
+            command.gradeLabel(),
+            command.price(),
+            LocalDateTime.now()
+        );
+
         return ProgramResult.from(program);
     }
 
@@ -329,7 +339,7 @@ public class ProgramCommandService {
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, scheduleId);
-        schedule.removePriceGrade(gradeLabel);
+        schedule.removePriceGrade(gradeLabel, LocalDateTime.now());
         ProgramResult.from(program);
     }
 
@@ -380,7 +390,7 @@ public class ProgramCommandService {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_VENUE_LIMIT);
         }
 
-        schedule.addSectionCapacity(command.sectionId(), command.capacity());
+        schedule.addSectionCapacity(command.sectionId(), command.capacity(), LocalDateTime.now());
         return ProgramResult.from(program);
     }
 
@@ -393,7 +403,7 @@ public class ProgramCommandService {
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, scheduleId);
-        schedule.removeSectionCapacity(sectionId);
+        schedule.removeSectionCapacity(sectionId, LocalDateTime.now());
         return ProgramResult.from(program);
     }
 
