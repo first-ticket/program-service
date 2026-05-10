@@ -39,7 +39,7 @@ public interface ScheduleJpaRepository extends JpaRepository<Schedule, UUID> {
      *
      * [eventStartAt, eventEndAt) 범위와 겹치는 스케줄을 SELECT FOR UPDATE로 조회.
      * 겹침 조건: 기존 스케줄의 시작이 새 종료보다 이전 AND 기존 종료가 새 시작보다 이후
-     * soft delete된 스케줄은 제외.
+     * soft delete된 스케줄이나, cancelled된 프로그램은 제외.
      *
      * DB 레벨 exclusion constraint(tsrange)와 이중 방어 구조.
      */
@@ -50,6 +50,11 @@ public interface ScheduleJpaRepository extends JpaRepository<Schedule, UUID> {
           AND s.deletedAt IS NULL
           AND s.eventStartAt < :eventEndAt
           AND s.eventEndAt > :eventStartAt
+          AND EXISTS (
+              SELECT 1 FROM Program p
+              WHERE p.id = s.program.id
+                AND p.status != com.firstticket.programservice.domain.ProgramStatus.CANCELLED
+          )
         """)
     List<Schedule> findOverlappingSchedulesWithLock(
         @Param("venueId") UUID venueId,
