@@ -1,5 +1,6 @@
 package com.firstticket.programservice.infrastructure.persistence;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.lang.NonNull;
 
 import com.firstticket.programservice.domain.Program;
+import com.firstticket.programservice.domain.ProgramStatus;
 
 /**
  * Spring Data JPA Repository.
@@ -25,7 +27,7 @@ public interface ProgramJpaRepository extends JpaRepository<Program, UUID> {
     @NonNull
     @Override
     @Query("SELECT v FROM Program v WHERE v.id = :id AND v.deletedAt IS NULL")
-        Optional<Program> findById(@NonNull @Param("id") UUID id);
+    Optional<Program> findById(@NonNull @Param("id") UUID id);
 
     @Override
     @Query("""
@@ -47,4 +49,27 @@ public interface ProgramJpaRepository extends JpaRepository<Program, UUID> {
           AND p.deletedAt IS NULL
         """)
     Optional<Program> findByIdWithSchedules(@Param("id") UUID id);
+
+    /**
+     * 특정 공연장에 활성 프로그램이 존재하는지 확인.
+     * Venue Service의 deleteVenue() 에서 공연장 삭제 가능 여부 판단에 사용한다.
+     *
+     * venueId는 Schedule에 있으므로 schedules JOIN이 필요하다.
+     * CANCELLED·CLOSED는 이미 종료된 프로그램이므로 제외한다.
+     * soft delete된 프로그램도 제외한다.
+     *
+     * @param venueId        삭제하려는 공연장 ID
+     * @param excludeStatuses 집계에서 제외할 상태 목록 (CANCELLED·CLOSED)
+     */
+    @Query("""
+        SELECT COUNT(p) > 0 FROM Program p
+        JOIN p.schedules s
+        WHERE s.venueId = :venueId
+          AND p.deletedAt IS NULL
+          AND p.status NOT IN :excludeStatuses
+        """)
+    boolean existsByVenueIdAndStatusNotIn(
+        @Param("venueId") UUID venueId,
+        @Param("excludeStatuses") List<ProgramStatus> excludeStatuses
+    );
 }

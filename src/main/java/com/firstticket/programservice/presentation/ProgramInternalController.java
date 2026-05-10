@@ -46,4 +46,22 @@ public class ProgramInternalController {
         return
             ScheduleBookingInfoResponse.from(result);
     }
+
+    /**
+     * 해당 공연장에 활성 프로그램 존재 여부 확인.
+     * Venue Service의 VenueCommandService.deleteVenue() 에서
+     * ProgramProvider(Feign)를 통해 호출하는 내부 전용 API.
+     *
+     * 응답:
+     * - 활성 프로그램 존재 시 → true (공연장 삭제 차단)
+     * - 없거나 모두 CANCELLED·CLOSED → false (공연장 삭제 허용)
+     *
+     * @param venueId 삭제하려는 공연장 ID
+     */
+    @GetMapping("/venues/{venueId}/exists")
+    public boolean hasProgramsForVenue(
+        @PathVariable("venueId") UUID venueId) {
+        return programInternalQueryService.hasProgramsForVenue(venueId);
+    }
+
 }

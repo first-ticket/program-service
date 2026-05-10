@@ -1,5 +1,6 @@
 package com.firstticket.programservice.domain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,14 @@ public interface ProgramRepository {
      * N+1 방지를 위해 JOIN FETCH로 구현한다.
      */
     Optional<Program> findByIdWithSchedules(UUID id);
+
+    /**
+     * 해당 공연장에 등록된 프로그램 존재 여부 확인.
+     * venue 삭제 전 Venue Service의 ProgramProvider가 호출하는 내부 API에서 사용한다.
+     * CANCELLED·CLOSED 상태의 프로그램은 제외한다.
+     * 취소·종료된 공연은 공연장 삭제를 막을 이유 없음
+     */
+    boolean existsByVenueIdAndStatusNotIn(UUID venueId, List<ProgramStatus> statuses);
 
     /** 프로그램 물리 삭제 (예매 내역 없는 DRAFT 상태에서만 허용) */
     void delete(Program program);
