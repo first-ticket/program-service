@@ -34,17 +34,20 @@ public enum ProgramErrorCode implements ErrorCode {
 
     /**
      * 삭제가 불가한 상태에서의 삭제 시도.
-     * ON_SALE·CANCELLED 상태에서 프로그램 삭제 시도
+     * ON_SALE·CANCELLED·CLOSED 상태에서 프로그램 삭제 시도
      */
     PROGRAM_NOT_DELETABLE_IN_PROCESS(HttpStatus.UNPROCESSABLE_ENTITY,
-        "예매 내역이 있는 프로그램은 삭제할 수 없습니다. CANCELLED 처리 후 환불 절차를 거쳐야 합니다"),
+        "이미 판매가 시작된 후의 프로그램은 삭제할 수 없습니다."),
 
     /**
      * 삭제가 불가한 상태에서의 삭제 시도.
      * SOLD_OUT 상태에서 프로그램 삭제 시도
      */
     PROGRAM_NOT_DELETABLE(HttpStatus.UNPROCESSABLE_ENTITY,
-        "판매가 시작된 이후 CLOSE 처리를 거치지 않은 프로그램은 삭제할 수 없습니다."),
+        "매진 처리된 프로그램은 삭제할 수 없습니다."),
+
+    PROGRAM_NOT_ENDED_YET(HttpStatus.CONFLICT,
+        "아직 종료되지 않은 공연 일정이 있습니다"),
 
     /**
      * ProgramStatus 전이 규칙에 위배되는 상태 변경 시도.
@@ -147,7 +150,7 @@ public enum ProgramErrorCode implements ErrorCode {
     INVALID_SALE_PERIOD(HttpStatus.BAD_REQUEST,
         "판매 시작 일시는 종료 일시 이전이어야 합니다"),
 
-    /**
+    /**8
      * 판매 종료 일시가 공연 시작 일시 이후로 설정된 경우.
      * saleEndAt < eventStartAt 조건을 만족해야 함
      * 온라인 예매는 공연 시작 전에 마감되어야 하므로 이 제약이 필요함
@@ -166,6 +169,14 @@ public enum ProgramErrorCode implements ErrorCode {
         "공연 시작 일시는 현재 시각 이후여야 합니다"),
 
     // --- 가격 등급(PriceGrade) 관련 ---
+
+    /**
+     * 가격 등급이 없는 스케줄이 있는 상태에서 판매 시작 전이를 시도한 경우.
+     * 모든 스케줄에 최소 1개 이상의 가격 등급이 등록되어야 publish() 호출 가능.
+     */
+    PRICE_GRADE_REQUIRED(HttpStatus.BAD_REQUEST,
+        "모든 스케줄에 최소 1개 이상의 가격 등급이 필요합니다"),
+
     /**
      * 동일한 스케줄 내에 이미 같은 등급명(VIP·R석 등)이 존재하는 경우.
      * 중복 검증 기준: (scheduleId, gradeLabel) 조합
@@ -184,6 +195,9 @@ public enum ProgramErrorCode implements ErrorCode {
     /** 등급명이 null이거나 공백인 경우 */
     INVALID_GRADE_LABEL(HttpStatus.BAD_REQUEST,
         "등급명은 필수입니다"),
+
+    CANNOT_MODIFY_AFTER_SALE_START(HttpStatus.CONFLICT,
+        "예매 시작 이후에는 가격 등급을 수정할 수 없습니다"),
 
     // ---- 공연장 관련 ----
     VENUE_NOT_FOUND(HttpStatus.NOT_FOUND,

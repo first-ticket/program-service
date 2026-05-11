@@ -111,7 +111,7 @@ public class Schedule extends BaseUserEntity {
      * 3. 행사 시작 > 판매 종료 (판매는 행사 시작 전에 마감되어야 함)
      */
     static Schedule create(Program program, UUID venueId, LocalDateTime eventStartAt, LocalDateTime eventEndAt,
-        LocalDateTime saleStartAt, LocalDateTime saleEndAt, int totalCapacity) {
+        LocalDateTime saleStartAt, LocalDateTime saleEndAt, int totalCapacity, LocalDateTime currentTime) {
         // 스케줄 필수 정보 검증
         validateScheduleInfo(venueId, totalCapacity);
 
@@ -120,7 +120,7 @@ public class Schedule extends BaseUserEntity {
 
         // 과거 시점 공연 등록 차단
         // Presentation 계층 @FutureOrPresent 어노테이션과 이중 방어
-        if (eventStartAt.isBefore(LocalDateTime.now())) {
+        if (eventStartAt.isBefore(currentTime)) {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 
@@ -140,13 +140,14 @@ public class Schedule extends BaseUserEntity {
      * - CANCELLED/CLOSED: 수정 불가
      */
     public void update(LocalDateTime eventStartAt, LocalDateTime eventEndAt, LocalDateTime saleStartAt,
-        LocalDateTime saleEndAt, UUID venueId, Integer totalCapacity) {
+        LocalDateTime saleEndAt, UUID venueId, Integer totalCapacity, LocalDateTime currentTime) {
 
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
 
         ProgramStatus programStatus = this.program.getStatus();
         if (programStatus != ProgramStatus.DRAFT) {
+            validateBeforeSaleStart(currentTime);
             if (saleStartAt != null || saleEndAt != null || venueId != null) {
                 throw new ProgramException(ProgramErrorCode.SCHEDULE_SALE_INFO_NOT_EDITABLE);
             }
@@ -157,6 +158,14 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newEventEnd = (eventEndAt != null) ? eventEndAt : this.eventEndAt;
         LocalDateTime newSaleStart = (saleStartAt != null) ? saleStartAt : this.saleStartAt;
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
+
+        // 새로 입력된 판매 기간이 현재 시각보다 이전이면 차단
+        if (newSaleStart.isBefore(currentTime)) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
+        }
+        if (newSaleEnd.isBefore(currentTime)) {
+            throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
+        }
 
         // totalCapacity 확인
         int newTotalCapacity = this.totalCapacity;
@@ -201,25 +210,22 @@ public class Schedule extends BaseUserEntity {
 
     /**
      * 해당 회차에 가격 등급(PriceGrade)을 추가합니다.
-     * @param gradeLabel 등급명 (예: VIP, R, S) - 중복 불가
+     * 예매 시작 이후에는 가격 변경이 불가하다.
+     * 이미 예매한 사용자와의 형평성 및 BookingSeat 가격 정합성 보호.
+     *
+     * currentTime은 호출자(Application 계층)가 주입한다.
+     * LocalDateTime.now() 직접 참조를 피해 테스트 용이성을 확보한다.
+     *
+     * @param currentTime 현재 시각 — Application 계층에서 LocalDateTime.now()로 주입
      */
-    public void addPriceGrade(UUID sectionId, String gradeLabel, int price) {
-        // 스케줄 수정 가능한 프로그램 상태인지 검증
+    public void addPriceGrade(UUID sectionId, String gradeLabel, int price,
+        LocalDateTime currentTime) {
         validateEditable();
-
-        // gradeLabel null/blank 선검증
-        if (gradeLabel == null || gradeLabel.isBlank()) {
-            throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
-        }
-
-        boolean isDuplicate = priceGrades.stream().anyMatch(pg -> pg.getGradeLabel().equals(gradeLabel));
-        if (isDuplicate) {
-            throw new ProgramException(ProgramErrorCode.PRICE_GRADE_DUPLICATE);
-        }
-        priceGrades.add(PriceGrade.of(this, sectionId, gradeLabel, price));
+        validateBeforeSaleStart(currentTime);
+        this.priceGrades.add(PriceGrade.of(this, sectionId, gradeLabel, price));
     }
 
-    public void removePriceGrade(String gradeLabel) {
+    public void removePriceGrade(String gradeLabel, LocalDateTime currentTime) {
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
 
@@ -227,6 +233,9 @@ public class Schedule extends BaseUserEntity {
         if (gradeLabel == null || gradeLabel.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_GRADE_LABEL);
         }
+
+        // addPriceGrade()와 동일한 기준 — saleStartAt 이후 삭제 불가
+        validateBeforeSaleStart(currentTime);
 
         boolean removed = priceGrades.removeIf(pg -> pg.getGradeLabel().equals(gradeLabel));
         if (!removed) {
@@ -252,9 +261,11 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException SEATED 타입에서 호출 시 SECTION_CAPACITY_NOT_ALLOWED
      * @throws ProgramException 동일 구역 중복 등록 시 SECTION_CAPACITY_DUPLICATE
      */
-    public void addSectionCapacity(UUID sectionId, int capacity) {
+    public void addSectionCapacity(UUID sectionId, int capacity, LocalDateTime currentTime) {
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
+
+        validateBeforeSaleStart(currentTime);
 
         // 1. 타입 검증 — SEATED는 이 메서드 호출 자체가 불가
         if (this.program.getType() == ProgramType.SEATED) {
@@ -291,13 +302,15 @@ public class Schedule extends BaseUserEntity {
      * @throws ProgramException sectionId가 null인 경우 INVALID_SECTION_ID
      * @throws ProgramException 존재하지 않는 구역인 경우 SECTION_CAPACITY_NOT_FOUND
      */
-    public void removeSectionCapacity(UUID sectionId) {
+    public void removeSectionCapacity(UUID sectionId, LocalDateTime currentTime) {
         if (this.program.getType() == ProgramType.SEATED) {
             throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_NOT_ALLOWED);
         }
 
         // 스케줄 수정 가능한 프로그램 상태인지 검증
         validateEditable();
+
+        validateBeforeSaleStart(currentTime);
 
         // 입력값 검증 — null이면 SECTION_CAPACITY_NOT_FOUND가 아닌 INVALID_SECTION_ID로 분리
         if (sectionId == null) {
@@ -321,9 +334,8 @@ public class Schedule extends BaseUserEntity {
     /**
      * 현재 시각 기준으로 티켓 판매 가능 여부를 확인합니다.
      */
-    public boolean isWithinSalePeriod() {
-        LocalDateTime now = LocalDateTime.now();
-        return now.isAfter(saleStartAt) && now.isBefore(saleEndAt);
+    public boolean isWithinSalePeriod(LocalDateTime currentTime) {
+        return currentTime.isAfter(saleStartAt) && currentTime.isBefore(saleEndAt);
     }
 
     // ----- 검증 메서드 -------------------------------------------
@@ -378,6 +390,19 @@ public class Schedule extends BaseUserEntity {
         ProgramStatus status = this.program.getStatus();
         if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_EDITABLE);
+        }
+    }
+
+    /**
+     * 예매 시작 전인지 검증.
+     * update(), addPriceGrade(), removePriceGrade(),
+     * addSectionCapacity(), removeSectionCapacity() 진입 시 호출한다.
+     *
+     * @param currentTime Application 계층에서 LocalDateTime.now()로 주입
+     */
+    private void validateBeforeSaleStart(LocalDateTime currentTime) {
+        if (currentTime.isAfter(this.saleStartAt)) {
+            throw new ProgramException(ProgramErrorCode.CANNOT_MODIFY_AFTER_SALE_START);
         }
     }
 }

@@ -123,14 +123,14 @@ public class Program extends BaseUserEntity {
     public Schedule addSchedule(UUID venueId,
         LocalDateTime eventStartAt, LocalDateTime eventEndAt,
         LocalDateTime saleStartAt, LocalDateTime saleEndAt,
-        int totalCapacity) {
+        int totalCapacity, LocalDateTime currentTime) {
         // 프로그램 상태가 CANCELLED, CLOSED 일 경우, 스케줄 추가는 불가능
         if (status == ProgramStatus.CANCELLED || status == ProgramStatus.CLOSED) {
             throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_EDITABLE);
         }
         Schedule schedule = Schedule.create(
-            this, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity
-        );
+            this, venueId, eventStartAt, eventEndAt, saleStartAt, saleEndAt, totalCapacity,
+            currentTime);
         schedules.add(schedule);
         return schedule;
     }
@@ -168,6 +168,14 @@ public class Program extends BaseUserEntity {
         if (schedules.isEmpty()) {
             throw new ProgramException(ProgramErrorCode.SCHEDULE_REQUIRED);
         }
+
+        // 가격 등급이 하나도 없는 스케줄이 있으면 차단
+        boolean hasEmptyPriceGrade = schedules.stream()
+            .anyMatch(s -> s.getPriceGrades().isEmpty());
+        if (hasEmptyPriceGrade) {
+            throw new ProgramException(ProgramErrorCode.PRICE_GRADE_REQUIRED);
+        }
+
         this.status = ProgramStatus.ON_SALE;
     }
 
@@ -187,8 +195,16 @@ public class Program extends BaseUserEntity {
      * 공연을 종료(CLOSED) 상태로 전환합니다.
      * 공연 일정이 모두 마무리된 후 운영자가 수동으로 닫거나
      * 배치로 자동 전이함.
+     * 프로그램 종료.
+     * currentTime을 주입받아 모든 스케줄 종료 여부를 도메인에서 검증한다.
      */
-    public void close() {
+    public void close(LocalDateTime currentTime) {
+        boolean allEnded = this.schedules.stream()
+            .allMatch(s -> s.getEventEndAt().isBefore(currentTime));
+
+        if (!allEnded) {
+            throw new ProgramException(ProgramErrorCode.PROGRAM_NOT_ENDED_YET);
+        }
         status.validateTransition(ProgramStatus.CLOSED);
         this.status = ProgramStatus.CLOSED;
     }
