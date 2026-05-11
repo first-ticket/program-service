@@ -251,6 +251,15 @@ public enum ProgramErrorCode implements ErrorCode {
     TOTAL_CAPACITY_LESS_THAN_SECTION_SUM(HttpStatus.UNPROCESSABLE_ENTITY,
         "총 수용 인원이 구역별 인원 합계보다 작을 수 없습니다. 구역별 인원을 먼저 조정해주세요"),
 
+    SECTION_NOT_FOUND_IN_VENUE(HttpStatus.BAD_REQUEST,
+        "해당 구역은 이 공연장에 속하지 않습니다"),
+
+    TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT(HttpStatus.UNPROCESSABLE_ENTITY,
+        "스케줄 총 수용 인원이 공연장의 최대 수용 인원을 초과합니다"),
+
+    SECTION_TYPE_MISMATCH(HttpStatus.BAD_REQUEST,
+        "구역 타입이 프로그램 타입과 일치하지 않습니다"),
+
     // ---- PageNation 관련 ------
     INVALID_SEARCH_QUERY(HttpStatus.BAD_REQUEST,
         "검색 조건은 필수입니다"),

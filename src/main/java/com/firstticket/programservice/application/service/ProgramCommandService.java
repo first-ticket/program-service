@@ -25,6 +25,8 @@ import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
 import com.firstticket.programservice.domain.service.VenueProvider;
+import com.firstticket.programservice.domain.service.dto.SectionValidationData;
+import com.firstticket.programservice.domain.service.dto.VenueValidationData;
 
 import lombok.RequiredArgsConstructor;
 
@@ -191,8 +193,18 @@ public class ProgramCommandService {
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
-        // 1. 공연장 존재 여부 확인 — 존재하지 않으면 FeignErrorDecoder가 예외 던짐
-        venueProvider.validateVenueExists(command.venueId());
+        // 기존: venueProvider.validateVenueExists(command.venueId());
+        // 변경: venue 존재 확인 + totalCapacity 상한 검증을 한 번에 처리
+
+        VenueValidationData venueValidation =
+            venueProvider.validateVenue(command.venueId(), program.getType());
+
+        // 스케줄 totalCapacity가 venue 내 해당 타입 구역 전체 수용량을 초과하는지 검증
+        // ex) SEATED 프로그램인데 venue에 SEATED 구역 수용량 합계가 500석이면
+        //     totalCapacity는 500을 넘을 수 없다
+        if (command.totalCapacity() > venueValidation.totalCapacity()) {
+            throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT);
+        }
 
         // 2. 공연장 시간 겹침 검증
         // 비관적 락으로 동시 요청 간 TOCTOU 방지 (V-04)
@@ -229,7 +241,12 @@ public class ProgramCommandService {
 
         // venueId가 변경되는 경우에만 존재 여부 확인
         if (command.venueId() != null) {
-            venueProvider.validateVenueExists(command.venueId());
+            VenueValidationData venueValidation =
+                venueProvider.validateVenue(command.venueId(), program.getType());
+
+            if (command.totalCapacity() > venueValidation.totalCapacity()) {
+                throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT);
+            }
 
             // 변경된 venueId 기준으로 시간 겹침 검증
             // 자기 자신은 제외하고 검증
@@ -286,6 +303,19 @@ public class ProgramCommandService {
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
+
+        // sectionId가 있는 타입(SEATED·STANDING)에서만 호출
+        if (command.sectionId() != null) {
+            SectionValidationData sectionValidation =
+                venueProvider.validateSection(schedule.getVenueId(), command.sectionId());
+
+            // section의 SeatType과 program의 ProgramType 일치 여부 검증
+            // ex) SEATED 프로그램에 STANDING 구역을 등록하는 경우 차단
+            if (!sectionValidation.seatType().equals(program.getType().name())) {
+                throw new ProgramException(ProgramErrorCode.SECTION_TYPE_MISMATCH);
+            }
+        }
+
         schedule.addPriceGrade(command.sectionId(), command.gradeLabel(), command.price());
         return ProgramResult.from(program);
     }
@@ -294,13 +324,13 @@ public class ProgramCommandService {
      * 가격 등급 삭제.
      * 삭제 후 재등록 방식으로 처리한다.
      */
-    public ProgramResult removePriceGrade(UUID requesterId, UUID programId, UUID scheduleId, String gradeLabel) {
+    public void removePriceGrade(UUID requesterId, UUID programId, UUID scheduleId, String gradeLabel) {
         Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
 
         Schedule schedule = findScheduleInProgram(program, scheduleId);
         schedule.removePriceGrade(gradeLabel);
-        return ProgramResult.from(program);
+        ProgramResult.from(program);
     }
 
     // ---- 구역별 인원 관련 ---------------------------------------
@@ -323,12 +353,6 @@ public class ProgramCommandService {
         Program program = findProgramWithSchedulesOrThrow(command.programId());
         checkOwner(program, requesterId);
 
-        // Section.capacity 상한 검증
-        int sectionCapacity = venueProvider.getSectionCapacity(command.sectionId());
-        if (command.capacity() > sectionCapacity) {
-            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_VENUE_LIMIT);
-        }
-
         // 비관적 락으로 합계 불변식(sum ≤ totalCapacity) 보호
         // findProgramWithSchedulesOrThrow()와 별도로 락을 걸어야 하므로
         // ScheduleRepository.findByIdWithLock() 사용
@@ -340,6 +364,20 @@ public class ProgramCommandService {
         if (!schedule.getProgram().getId().equals(program.getId())) {
             throw new ProgramException(
                 ProgramErrorCode.SCHEDULE_DOES_NOT_BELONG_TO_PROGRAM);
+        }
+
+        SectionValidationData sectionValidation =
+            venueProvider.validateSection(schedule.getVenueId(), command.sectionId());
+
+        // section의 SeatType과 program의 ProgramType 일치 여부 검증
+        if (!sectionValidation.seatType().equals(program.getType().name())) {
+            throw new ProgramException(ProgramErrorCode.SECTION_TYPE_MISMATCH);
+        }
+
+        // Section.capacity 상한 검증 (기존 getSectionCapacity() 대체)
+        // sectionValidation.capacity()가 이미 SEATED→rowCount×colCount / STANDING·FREE→capacity 를 반환
+        if (command.capacity() > sectionValidation.capacity()) {
+            throw new ProgramException(ProgramErrorCode.SECTION_CAPACITY_EXCEEDS_VENUE_LIMIT);
         }
 
         schedule.addSectionCapacity(command.sectionId(), command.capacity());
