@@ -19,7 +19,7 @@ spring:
                 service-id: config-server
 
     profiles:
-        active: prod  # 기본 로컬 실행
+        active: local  # 기본 로컬 실행
         include: kafka
 
 eureka:
