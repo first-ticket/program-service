@@ -5,10 +5,6 @@ spring:
     application:
         name: program-service
 
-    threads:
-        virtual:
-            enabled: true
-
     config:
         import:
             - "optional:file:.env[.properties]"
@@ -23,20 +19,18 @@ spring:
                 service-id: config-server
 
     profiles:
-        active: local  # 기본 로컬 실행
+        active: prod  # 기본 로컬 실행
         include: kafka
-
-server:
-    port: 8082
 
 eureka:
     instance:
-        prefer-ip-address: true
+        prefer-ip-address: false
+        instance-id: ${spring.application.name}:${server.port}
     client:
         register-with-eureka: true
         fetch-registry: true
         service-url:
-            defaultZone: http://${EUREKA_SERVER_URL:localhost}:8761/eureka/
+            defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka}
 
 management:
     endpoints:
