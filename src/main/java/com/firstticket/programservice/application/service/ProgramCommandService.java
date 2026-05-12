@@ -1,12 +1,16 @@
 package com.firstticket.programservice.application.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.firstticket.common.exception.BusinessException;
+import com.firstticket.common.messaging.event.Events;
 import com.firstticket.common.response.CommonErrorCode;
 import com.firstticket.programservice.application.dto.command.AddPriceGradeCommand;
 import com.firstticket.programservice.application.dto.command.AddSectionCapacityCommand;
@@ -16,6 +20,11 @@ import com.firstticket.programservice.application.dto.command.UpdateProgramDraft
 import com.firstticket.programservice.application.dto.command.UpdateProgramOnSaleCommand;
 import com.firstticket.programservice.application.dto.command.UpdateScheduleCommand;
 import com.firstticket.programservice.application.dto.result.ProgramResult;
+import com.firstticket.programservice.application.event.ProgramCancelledPayload;
+import com.firstticket.programservice.application.event.ProgramCreatedPayload;
+import com.firstticket.programservice.application.event.ProgramTimeUpdatedPayload;
+import com.firstticket.programservice.application.event.ScheduleCreatedPayload;
+import com.firstticket.programservice.domain.PriceGrade;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
 import com.firstticket.programservice.domain.ProgramStatus;
@@ -60,7 +69,9 @@ public class ProgramCommandService {
      * 새로 생성된 Program은 schedules가 빈 리스트로 초기화되므로
      * findByIdWithSchedules() 없이 바로 반환한다.
      *
-     * TODO: Kafka 도입 시 ProgramStatusChangedEvent 발행 추가
+     * 프로그램 생성 후 ProgramCreatedEvent를 발행한다.
+     * 대기열 서비스가 수신하여 프로그램 대기열을 초기화한다.
+     * 생성 시점에는 스케줄이 없으므로 openAt·closeAt은 null로 발행한다.
      */
     public ProgramResult createProgram(CreateProgramCommand command) {
         validateCreateProgramCommand(command);
@@ -75,6 +86,15 @@ public class ProgramCommandService {
 
         Program program = Program.create(command.title(), command.category(), command.theme(), type,
             command.region(), command.posterUrl(), command.description());
+
+        Events.publish(
+            UUID.randomUUID().toString(),
+            "PROGRAM",
+            program.getId(),
+            "program.created",
+            ProgramCreatedPayload.from(program)
+        );
+
         return ProgramResult.from(programRepository.save(program));
     }
 
@@ -116,12 +136,61 @@ public class ProgramCommandService {
      * DRAFT → ON_SALE 전이.
      * 최소 1개의 스케줄이 있어야 하므로 schedules 로딩이 필요하다.
      *
-     * TODO: Kafka 도입 시 ProgramStatusChangedEvent 발행 추가
+     * 이 시점에 모든 스케줄·가격 등급·구역 수용량이 확정되므로
+     * schedule.created와 program.time.updated를 함께 발행한다.
+     *
+     * schedule.created: 좌석 서비스가 수신하여 BookingSeat 생성
+     *   → createSchedule() 시점이 아닌 여기서 발행하는 이유:
+     *     PriceGrade는 addPriceGrade()로 별도 등록되므로
+     *     createSchedule() 시점에는 price가 확정되지 않는다.
+     *
+     * program.time.updated: 대기열 서비스가 수신하여 openAt·closeAt 등록
      */
     public void publishProgram(UUID requesterId, UUID programId) {
         Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
         program.publish();
+
+        program.getSchedules().forEach(schedule -> {
+            // sectionId → price 맵 구성
+            Map<UUID, Integer> sectionPriceMap = schedule.getPriceGrades().stream()
+                .filter(pg -> pg.getSectionId() != null)
+                .collect(Collectors.toMap(
+                    PriceGrade::getSectionId,
+                    PriceGrade::getPrice,
+                    (existing, incoming) -> existing
+                ));
+
+            // venue 구역 정보 조회 — seatTemplates 구성용
+            VenueValidationData venueValidation =
+                venueProvider.validateVenue(schedule.getVenueId(), program.getType());
+
+            List<ScheduleCreatedPayload.SeatTemplate> seatTemplates =
+                venueValidation.sections().stream()
+                    .map(section -> ScheduleCreatedPayload.SeatTemplate.from(
+                        section,
+                        sectionPriceMap.getOrDefault(section.sectionId(), 0)
+                    ))
+                    .toList();
+
+            // schedule.created 발행 — 좌석 서비스 BookingSeat 생성
+            Events.publish(
+                UUID.randomUUID().toString(),
+                "SCHEDULE",
+                schedule.getId(),
+                "schedule.created",
+                new ScheduleCreatedPayload(schedule.getId(), program.getId(), seatTemplates)
+            );
+
+            // program.time.updated 발행 — 대기열 서비스 openAt·closeAt 등록
+            Events.publish(
+                UUID.randomUUID().toString(),
+                "PROGRAM",
+                program.getId(),
+                "program.time.updated",
+                ProgramTimeUpdatedPayload.from(program, schedule)
+            );
+        });
     }
 
     /**
@@ -129,17 +198,21 @@ public class ProgramCommandService {
      * scheduleIds 수집이 필요하므로 schedules 로딩이 필요하다.
      * 반환값이 없으므로 findProgramWithSchedulesOrThrow() 사용.
      *
-     * TODO: Kafka 도입 시 ProgramCancelledEvent, ProgramStatusChangedEvent 발행 추가
-     *       발행 예시:
-     *       List<UUID> scheduleIds = program.getSchedules().stream()
-     *           .map(Schedule::getId).toList();
-     *       programEvents.programCancelled(programId, scheduleIds);
-     *       programEvents.programStatusChanged(ProgramStatusEvent.from(program));
+     * program.cancelled 발행 — 대기열 서비스 대기열 종료
      */
     public void cancelProgram(UUID requesterId, UUID programId) {
         Program program = findProgramWithSchedulesOrThrow(programId);
         checkOwner(program, requesterId);
         program.cancel();
+
+        // program.cancelled 발행
+        Events.publish(
+            UUID.randomUUID().toString(),
+            "PROGRAM",
+            program.getId(),
+            "program.cancelled",
+            ProgramCancelledPayload.from(program)
+        );
     }
 
     /**
@@ -279,6 +352,21 @@ public class ProgramCommandService {
             command.venueId(), command.totalCapacity(),
             LocalDateTime.now()
         );
+
+        // 판매 기간이 변경된 경우에만 발행
+        boolean salePeriodChanged =
+            command.saleStartAt() != null || command.saleEndAt() != null;
+
+        if (salePeriodChanged) {
+            Events.publish(
+                UUID.randomUUID().toString(),
+                "PROGRAM",
+                program.getId(),
+                "program.time.updated",
+                ProgramTimeUpdatedPayload.from(program, schedule)
+            );
+        }
+
         return ProgramResult.from(program);
     }
 
