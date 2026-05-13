@@ -1,5 +1,6 @@
 package com.firstticket.programservice.infrastructure.provider;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -38,7 +39,16 @@ public class VenueProviderImpl implements VenueProvider {
             // ProgramType과 SeatType은 동일한 이름을 사용하므로 .name()으로 변환
             String seatType = programType.name();
             var response = venueClient.getVenueValidation(venueId, seatType);
-            return new VenueValidationData(response.totalCapacity());
+
+            // SectionInfo 변환
+            List<VenueValidationData.SectionInfo> sections = response.sections().stream()
+                .map(s -> new VenueValidationData.SectionInfo(
+                    s.sectionId(), s.sectionName(), s.seatType(),
+                    s.rowCount(), s.colCount(), s.capacity()
+                ))
+                .toList();
+
+            return new VenueValidationData(response.totalCapacity(), sections);
         } catch (feign.FeignException.NotFound e) {
             throw new ProgramException(ProgramErrorCode.VENUE_NOT_FOUND);
         } catch (feign.FeignException e) {

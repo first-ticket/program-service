@@ -4,17 +4,14 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.firstticket.programservice.application.dto.query.ProgramSearchQuery;
 import com.firstticket.programservice.application.dto.result.ProgramResult;
 import com.firstticket.programservice.application.dto.result.ProgramSummaryResult;
-import com.firstticket.programservice.application.dto.result.ScheduleBookingInfoResult;
 import com.firstticket.programservice.domain.Program;
 import com.firstticket.programservice.domain.ProgramRepository;
 import com.firstticket.programservice.domain.ProgramStatus;
-import com.firstticket.programservice.domain.Schedule;
 import com.firstticket.programservice.domain.ScheduleRepository;
 import com.firstticket.programservice.domain.exception.ProgramErrorCode;
 import com.firstticket.programservice.domain.exception.ProgramException;
@@ -23,7 +20,6 @@ import com.firstticket.programservice.domain.query.ProgramQueryRepository;
 import com.firstticket.programservice.domain.service.SeatProvider;
 import com.firstticket.programservice.domain.service.VenueProvider;
 import com.firstticket.programservice.domain.service.dto.ScheduleRemainingData;
-import com.firstticket.programservice.domain.service.dto.VenueInfo;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

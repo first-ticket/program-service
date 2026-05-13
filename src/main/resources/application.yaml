@@ -5,10 +5,6 @@ spring:
     application:
         name: program-service
 
-    threads:
-        virtual:
-            enabled: true
-
     config:
         import:
             - "optional:file:.env[.properties]"
@@ -26,9 +22,6 @@ spring:
         active: local  # 기본 로컬 실행
         include: kafka
 
-server:
-    port: 8082
-
 eureka:
     instance:
         prefer-ip-address: true
@@ -37,15 +30,3 @@ eureka:
         fetch-registry: true
         service-url:
             defaultZone: http://${EUREKA_SERVER_URL:localhost}:8761/eureka/
-
-management:
-    endpoints:
-        web:
-            exposure:
-                include: health, info, prometheus, metrics
-    endpoint:
-        health:
-            show-details: always
-    tracing:
-        sampling:
-            probability: 1.0

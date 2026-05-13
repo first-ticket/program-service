@@ -1,0 +1,39 @@
+services:
+    program-service:
+        env_file:
+            - .env
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                GITHUB_USER: ${GITHUB_USER}
+            secrets:
+                - github_token
+        image: program-service:latest
+        container_name: program-service
+        ports:
+            - "8082:8080"
+        environment:
+            EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+            CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME}
+            CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD}
+            JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+            KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+        networks:
+            - first-ticket-network
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
+            interval: 30s
+            timeout: 5s
+            start_period: 60s
+            retries: 3
+        restart: unless-stopped
+
+secrets:
+    github_token:
+        environment: GITHUB_TOKEN
+
+networks:
+    first-ticket-network:
+        external: true
+        name: first-ticket-network
