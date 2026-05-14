@@ -45,7 +45,7 @@ COPY --from=builder --chown=spring:spring /app/application/ ./
 # [중요] 7. 런타임 환경에 .env 파일 주입
 # docker-compose에서 env_file을 사용하더라도,
 # 애플리케이션 내부에서 직접 파일을 읽는 설정을 위해 복사해두는 것이 안전합니다.
-COPY --chown=spring:spring .env .env
+#COPY --chown=spring:spring .env .env
 
 USER spring
 
