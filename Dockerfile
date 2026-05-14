@@ -9,6 +9,7 @@ WORKDIR /app
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
+RUN chmod +x gradlew
 
 # 2. 의존성 미리 다운로드
 ARG GITHUB_USER
