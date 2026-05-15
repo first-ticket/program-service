@@ -160,10 +160,10 @@ public class Schedule extends BaseUserEntity {
         LocalDateTime newSaleEnd = (saleEndAt != null) ? saleEndAt : this.saleEndAt;
 
         // 새로 입력된 판매 기간이 현재 시각보다 이전이면 차단
-        if (newSaleStart.isBefore(currentTime)) {
+        if (saleStartAt != null && newSaleStart.isBefore(currentTime)) {
             throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
         }
-        if (newSaleEnd.isBefore(currentTime)) {
+        if (saleEndAt != null && newSaleEnd.isBefore(currentTime)) {
             throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
         }
 
@@ -182,7 +182,7 @@ public class Schedule extends BaseUserEntity {
 
         // 이미 등록된 스케줄의 eventStartAt이 현재 시각보다 이전일 수 있으므로
         // 변경하지 않는다면 과거 시점 판정을 하지 않음
-        if (eventStartAt != null && newEventStart.isBefore(LocalDateTime.now())) {
+        if (eventStartAt != null && newEventStart.isBefore(currentTime)) {
             throw new ProgramException(ProgramErrorCode.PAST_EVENT_START);
         }
 

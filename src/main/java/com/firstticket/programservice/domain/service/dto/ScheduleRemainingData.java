@@ -2,6 +2,9 @@ package com.firstticket.programservice.domain.service.dto;
 
 import java.util.UUID;
 
+import com.firstticket.programservice.domain.exception.ProgramErrorCode;
+import com.firstticket.programservice.domain.exception.ProgramException;
+
 /**
  * 좌석 서비스에서 조회한 회차별 잔여 좌석 수 데이터.
  * SeatProvider를 통해 조회된 결과를 담는다.
@@ -13,7 +16,7 @@ public record ScheduleRemainingData(
 ) {
     public ScheduleRemainingData {
         if (scheduleId == null) {
-            throw new NullPointerException("scheduleId는 null일 수 없습니다.");
+            throw new ProgramException(ProgramErrorCode.INVALID_SCHEDULE_ID);
         }
         if (remainingCount < 0) {
             throw new IllegalArgumentException("remainingCount는 0 이상이어야 합니다.");
