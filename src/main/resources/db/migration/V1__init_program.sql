@@ -1,7 +1,7 @@
 -- =====================================================
 -- Program Service — V1 초기 스키마
--- schema: program.schema
--- Spring 설정: spring.jpa.properties.hibernate.default_schema=program.schema
+-- schema: program_schema
+-- Spring 설정: spring.jpa.properties.hibernate.default_schema=program_schema
 -- =====================================================
 
 -- ── btree_gist 확장 ──────────────────────────────────
