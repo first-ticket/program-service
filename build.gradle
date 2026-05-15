@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.13'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.asciidoctor.jvm.convert' version '4.0.0'
 }
 
 group = 'com.firstticket'
@@ -47,6 +48,13 @@ repositories {
         }
     }
     maven {
+        url = 'https://maven.pkg.github.com/first-ticket/common-jpa'
+        credentials {
+            username = githubUser
+            password = githubToken
+        }
+    }
+    maven {
         url = 'https://maven.pkg.github.com/first-ticket/common-messaging'
         credentials {
             username = githubUser
@@ -55,8 +63,13 @@ repositories {
     }
 }
 
+configurations {
+    asciidoctorExt
+}
+
 ext {
     set('springCloudVersion', "2025.0.2")
+    snippetsDir = file("build/generated-snippets")
 }
 
 dependencyManagement {
@@ -68,8 +81,8 @@ dependencyManagement {
 dependencies {
     // first-ticket 공통 모듈
     implementation 'com.first-ticket:common:0.0.4-SNAPSHOT'
-    implementation 'com.first-ticket:common-jpa:0.0.1-SNAPSHOT'
-    implementation 'com.first-ticket:common-messaging:0.0.1-SNAPSHOT'
+    implementation 'com.first-ticket:common-jpa:0.0.2-SNAPSHOT'
+    implementation 'com.first-ticket:common-messaging:0.0.2-SNAPSHOT'
 
     // ── Spring Boot Core & Common ──
 //    implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -122,6 +135,7 @@ dependencies {
     testImplementation 'com.h2database:h2'
 
     // Rest Docs
+    asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
     testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
 }
 
@@ -141,5 +155,36 @@ clean {
 }
 
 test {
+    outputs.dir snippetsDir          // 스니펫을 snippetsDir에 저장
     useJUnitPlatform()
+}
+
+asciidoctor {
+    inputs.dir snippetsDir
+    dependsOn test
+    configurations 'asciidoctorExt'
+    baseDirFollowsSourceFile()
+}
+
+tasks.named('asciidoctor') {
+    doFirst {
+        delete file('src/main/resources/static/docs')
+    }
+}
+
+tasks.register('copyDocument', Copy) {
+    dependsOn asciidoctor
+    from layout.buildDirectory.dir("docs/asciidoc")
+    into layout.projectDirectory.dir("src/main/resources/static/docs")
+}
+
+tasks.named('build') {
+    dependsOn copyDocument
+}
+
+bootJar {
+    dependsOn asciidoctor
+    from(layout.buildDirectory.dir("docs/asciidoc")) {
+        into 'static/docs'
+    }
 }
