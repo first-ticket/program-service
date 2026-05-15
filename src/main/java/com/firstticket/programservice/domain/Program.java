@@ -263,10 +263,6 @@ public class Program extends BaseUserEntity {
         if (type == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_PROGRAM_TYPE);
         }
-        // region은 생성 시점에 확정되며 이후 변경하지 않는다
-        if (region == null || region.isBlank()) {
-            throw new ProgramException(ProgramErrorCode.INVALID_REGION);
-        }
 
         if (region.length() > 100) {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
@@ -275,6 +271,7 @@ public class Program extends BaseUserEntity {
     }
 
     private static String normalizeRegion(String region) {
+        // region은 생성 시점에 확정되며 이후 변경하지 않는다
         if (region == null || region.isBlank()) {
             throw new ProgramException(ProgramErrorCode.INVALID_REGION);
         }
