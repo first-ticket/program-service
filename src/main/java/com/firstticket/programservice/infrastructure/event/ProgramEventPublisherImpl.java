@@ -78,7 +78,7 @@ public class ProgramEventPublisherImpl implements ProgramEventPublisher {
             .toList();
 
         Events.publish(
-            UUID.randomUUID().toString(),
+            schedule.getId() + "-" + scheduleCreated,
             "SCHEDULE",
             schedule.getId(),
             scheduleCreated,
