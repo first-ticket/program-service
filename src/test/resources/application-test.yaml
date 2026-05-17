@@ -28,12 +28,6 @@ spring:
     kafka:
         bootstrap-servers: localhost:9092
 
-    security:
-        oauth2:
-            resourceserver:
-                jwt:
-                    issuer-uri: http://localhost:8080/realms/test
-
 eureka:
     client:
         enabled: false
