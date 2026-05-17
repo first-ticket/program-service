@@ -18,6 +18,7 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    asciidoctorExt
 }
 
 def env = [:]
@@ -61,10 +62,6 @@ repositories {
             password = githubToken
         }
     }
-}
-
-configurations {
-    asciidoctorExt
 }
 
 ext {
@@ -130,13 +127,18 @@ dependencies {
 
     // ── Test (Testcontainers 도입 고려) ──
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
 //    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
     testImplementation 'com.h2database:h2'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testRuntimeOnly 'org.postgresql:postgresql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     // Rest Docs
     asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
-    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
 }
 
 // QueryDSL QClass 생성 경로 설정 (IntelliJ와 Gradle 간의 충돌 방지)
