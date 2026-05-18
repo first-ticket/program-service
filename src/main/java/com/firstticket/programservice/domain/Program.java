@@ -102,9 +102,6 @@ public class Program extends BaseUserEntity {
 
     // -----------schedule 관련 -------------------------------------------
 
-    //TODO: 개별 Schedule 취소 기능 추가 시 ScheduleStatus 도입 여부 고려
-    //      → 기본 기능 구현 후 고도화 시 feature/schedule-status 브랜치에서 작업
-
     /**
      * 스케줄 추가는 반드시 Program을 통해서만 가능
      * SOLD_OUT 상태라도 새 회차를 추가하면 다시 판매가 가능해지므로, 스케줄 추가가 가능합니다.
@@ -183,8 +180,6 @@ public class Program extends BaseUserEntity {
      * 공연을 취소(CANCELLED) 상태로 전환합니다.
      * 취소 후 Kafka ProgramCancelledEvent 발행은
      * Application 계층에서 처리
-     * TODO: Program 취소 시 하위 Schedule도 함께 CANCELLED 처리 예정
-     *       → feature/schedule-status 브랜치에서 작업
      */
     public void cancel() {
         status.validateTransition(ProgramStatus.CANCELLED);
