@@ -257,13 +257,6 @@ public class ProgramCommandService {
         VenueValidationData venueValidation =
             venueProvider.validateVenue(command.venueId(), program.getType());
 
-        // 스케줄 totalCapacity가 venue 내 해당 타입 구역 전체 수용량을 초과하는지 검증
-        // ex) SEATED 프로그램인데 venue에 SEATED 구역 수용량 합계가 500석이면
-        //     totalCapacity는 500을 넘을 수 없다
-        if (command.totalCapacity() > venueValidation.totalCapacity()) {
-            throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT);
-        }
-
         // 2. 공연장 시간 겹침 검증
         // 비관적 락으로 동시 요청 간 TOCTOU 방지 (V-04)
         // DB 레벨 exclusion constraint(tsrange)와 이중 방어
@@ -275,7 +268,7 @@ public class ProgramCommandService {
 
         // 3. 스케줄 생성
         program.addSchedule(command.venueId(), command.eventStartAt(), command.eventEndAt(), command.saleStartAt(),
-            command.saleEndAt(), command.totalCapacity(), LocalDateTime.now());
+            command.saleEndAt(), venueValidation.totalCapacity(), LocalDateTime.now());
         programRepository.save(program);
 
         return ProgramResult.from(program);
@@ -294,14 +287,14 @@ public class ProgramCommandService {
 
         Schedule schedule = findScheduleInProgram(program, command.scheduleId());
 
+        Integer newTotalCapacity = null;
+
         // venueId가 변경되는 경우에만 존재 여부 확인
         if (command.venueId() != null) {
             VenueValidationData venueValidation =
                 venueProvider.validateVenue(command.venueId(), program.getType());
 
-            if (command.totalCapacity() > venueValidation.totalCapacity()) {
-                throw new ProgramException(ProgramErrorCode.TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT);
-            }
+            newTotalCapacity = venueValidation.totalCapacity();
 
             // 변경된 venueId 기준으로 시간 겹침 검증
             // 자기 자신은 제외하고 검증
@@ -321,10 +314,12 @@ public class ProgramCommandService {
             }
         }
 
+        // schedule.update() 단일 호출
+        // totalCapacity: venueId 변경 시 → venue 계산값, 미변경 시 → null (기존 값 유지)
         schedule.update(
             command.eventStartAt(), command.eventEndAt(),
             command.saleStartAt(), command.saleEndAt(),
-            command.venueId(), command.totalCapacity(),
+            command.venueId(), newTotalCapacity,
             LocalDateTime.now()
         );
 
@@ -566,9 +561,6 @@ public class ProgramCommandService {
         if (command.saleStartAt() == null || command.saleEndAt() == null) {
             throw new ProgramException(ProgramErrorCode.INVALID_SALE_PERIOD);
         }
-        if (command.totalCapacity() <= 0) {
-            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
-        }
     }
 
     /**
@@ -579,10 +571,6 @@ public class ProgramCommandService {
     private void validateUpdateScheduleCommand(UpdateScheduleCommand command) {
         if (command.scheduleId() == null) {
             throw new ProgramException(ProgramErrorCode.SCHEDULE_NOT_FOUND);
-        }
-        // 도메인의 Schedule.update()와 일관성 유지 — 0도 차단
-        if (command.totalCapacity() != null && command.totalCapacity() <= 0) {
-            throw new ProgramException(ProgramErrorCode.INVALID_CAPACITY);
         }
     }
 

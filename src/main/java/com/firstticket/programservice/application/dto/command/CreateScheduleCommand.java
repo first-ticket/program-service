@@ -13,7 +13,6 @@ public record CreateScheduleCommand(
     LocalDateTime eventStartAt,
     LocalDateTime eventEndAt,
     LocalDateTime saleStartAt,
-    LocalDateTime saleEndAt,
-    int totalCapacity
+    LocalDateTime saleEndAt
 ) {
 }

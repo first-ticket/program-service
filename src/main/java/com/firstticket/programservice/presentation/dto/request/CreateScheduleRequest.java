@@ -7,7 +7,6 @@ import com.firstticket.programservice.application.dto.command.CreateScheduleComm
 
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 /**
  * 스케줄 등록 요청 DTO.
@@ -33,18 +32,14 @@ public record CreateScheduleRequest(
 
     @NotNull(message = "판매 종료 일시는 필수입니다")
     @FutureOrPresent(message = "판매 종료 일시는 현재 시각 이후여야 합니다")
-    LocalDateTime saleEndAt,
-
-    @Positive(message = "수용 인원은 1명 이상이어야 합니다")
-    int totalCapacity
+    LocalDateTime saleEndAt
 
 ) {
     public CreateScheduleCommand toCommand(UUID programId) {
         return new CreateScheduleCommand(
             programId, venueId,
             eventStartAt, eventEndAt,
-            saleStartAt, saleEndAt,
-            totalCapacity
+            saleStartAt, saleEndAt
         );
     }
 }
