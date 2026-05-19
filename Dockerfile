@@ -11,14 +11,6 @@ COPY gradle gradle
 COPY build.gradle settings.gradle ./
 RUN chmod +x gradlew
 
-WORKDIR /app
-
-# 1. 빌드 캐시 최적화를 위해 설정 파일 먼저 복사
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle settings.gradle ./
-RUN chmod +x gradlew
-
 ARG GITHUB_USER
 
 COPY src src
@@ -27,6 +19,7 @@ RUN --mount=type=secret,id=github_token \
     GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
     GITHUB_USER=$GITHUB_USER \
     ./gradlew clean bootJar --no-daemon -x test -x asciidoctor
+
 
 # 4. Spring Boot 3의 계층화 기능을 활용해 레이어 추출
 RUN java -Djarmode=layertools -jar build/libs/*.jar extract
