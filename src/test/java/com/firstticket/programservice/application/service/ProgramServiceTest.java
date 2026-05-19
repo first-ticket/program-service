@@ -462,8 +462,7 @@ class ProgramServiceTest {
                 return new CreateScheduleCommand(
                     PROGRAM_ID, VENUE_ID,
                     FUTURE, FUTURE.plusHours(2),
-                    FUTURE.minusDays(30), FUTURE.minusDays(1),
-                    500
+                    FUTURE.minusDays(30), FUTURE.minusDays(1)
                 );
             }
 
@@ -482,21 +481,6 @@ class ProgramServiceTest {
                 ProgramResult result = programCommandService.createSchedule(OWNER_ID, validCommand());
 
                 assertThat(result.schedules()).hasSize(1);
-            }
-
-            @Test
-            @DisplayName("totalCapacity가 공연장 수용량 초과 시 TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT 예외 — 도메인 규칙 위반")
-            void fail_capacityExceedsVenueLimit() {
-                Program program = draftProgram();
-                given(programRepository.findByIdWithSchedules(PROGRAM_ID))
-                    .willReturn(Optional.of(program));
-                given(venueProvider.validateVenue(VENUE_ID, ProgramType.SEATED))
-                    .willReturn(venueValidation(499)); // command.totalCapacity=500 > 499
-
-                assertThatThrownBy(() -> programCommandService.createSchedule(OWNER_ID, validCommand()))
-                    .isInstanceOf(ProgramException.class)
-                    .extracting(e -> ((ProgramException)e).getErrorCode())
-                    .isEqualTo(ProgramErrorCode.TOTAL_CAPACITY_EXCEEDS_VENUE_LIMIT);
             }
 
             @Test

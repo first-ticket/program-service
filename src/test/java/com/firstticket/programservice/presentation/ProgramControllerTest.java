@@ -707,8 +707,7 @@ class ProgramControllerTest {
                               "eventStartAt": "2027-06-01T14:00:00",
                               "eventEndAt":   "2027-06-01T17:00:00",
                               "saleStartAt":  "2027-05-01T10:00:00",
-                              "saleEndAt":    "2027-05-31T23:59:59",
-                              "totalCapacity": 500
+                              "saleEndAt":    "2027-05-31T23:59:59"
                             }
                             """.formatted(VENUE_ID)))
                 .andExpect(status().isCreated())
@@ -729,8 +728,7 @@ class ProgramControllerTest {
                             fieldWithPath("eventStartAt").description("공연 시작 일시 (현재 이후)"),
                             fieldWithPath("eventEndAt").description("공연 종료 일시 (현재 이후)"),
                             fieldWithPath("saleStartAt").description("판매 시작 일시 (현재 이후)"),
-                            fieldWithPath("saleEndAt").description("판매 종료 일시 (현재 이후)"),
-                            fieldWithPath("totalCapacity").description("수용 인원 (1 이상)")
+                            fieldWithPath("saleEndAt").description("판매 종료 일시 (현재 이후)")
                         )
                     ));
         }
@@ -748,8 +746,7 @@ class ProgramControllerTest {
                               "eventStartAt": "2027-06-01T14:00:00",
                               "eventEndAt":   "2027-06-01T17:00:00",
                               "saleStartAt":  "2027-05-01T10:00:00",
-                              "saleEndAt":    "2027-05-31T23:59:59",
-                              "totalCapacity": 500
+                              "saleEndAt":    "2027-05-31T23:59:59"
                             }
                             """))
                 .andExpect(status().isBadRequest())
@@ -781,8 +778,7 @@ class ProgramControllerTest {
                               "eventStartAt": "2027-06-01T14:00:00",
                               "eventEndAt":   "2027-06-01T17:00:00",
                               "saleStartAt":  "2027-05-01T10:00:00",
-                              "saleEndAt":    "2027-05-31T23:59:59",
-                              "totalCapacity": 500
+                              "saleEndAt":    "2027-05-31T23:59:59"
                             }
                             """.formatted(VENUE_ID)))
                 .andExpect(status().isConflict())
@@ -925,8 +921,7 @@ class ProgramControllerTest {
                             fieldWithPath("eventEndAt").type(JsonFieldType.STRING).optional().description("공연 종료 일시"),
                             fieldWithPath("saleStartAt").type(JsonFieldType.STRING).optional().description("판매 시작 일시"),
                             fieldWithPath("saleEndAt").type(JsonFieldType.STRING).optional().description("판매 종료 일시"),
-                            fieldWithPath("venueId").type(JsonFieldType.STRING).optional().description("공연장 UUID"),
-                            fieldWithPath("totalCapacity").type(JsonFieldType.NUMBER).optional().description("수용 인원")
+                            fieldWithPath("venueId").type(JsonFieldType.STRING).optional().description("공연장 UUID")
                         )
                     ));
         }

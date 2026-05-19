@@ -11,19 +11,15 @@ COPY gradle gradle
 COPY build.gradle settings.gradle ./
 RUN chmod +x gradlew
 
-# 2. 의존성 미리 다운로드
 ARG GITHUB_USER
-RUN --mount=type=secret,id=github_token \
-    GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
-    GITHUB_USER=$GITHUB_USER \
-    ./gradlew dependencies --no-daemon
 
-# 3. 소스 코드 복사 및 실행 가능한 JAR 빌드
 COPY src src
+
 RUN --mount=type=secret,id=github_token \
     GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
     GITHUB_USER=$GITHUB_USER \
-    ./gradlew clean bootJar --no-daemon -x test
+    ./gradlew clean bootJar --no-daemon -x test -x asciidoctor
+
 
 # 4. Spring Boot 3의 계층화 기능을 활용해 레이어 추출
 RUN java -Djarmode=layertools -jar build/libs/*.jar extract
