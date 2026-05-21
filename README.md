@@ -132,13 +132,6 @@ docker-compose up --build
 | `GET` | `.../schedules/{scheduleId}/price-grades` | ALL | 가격 등급 목록 조회 |
 | `DELETE` | `.../schedules/{scheduleId}/price-grades/{gradeLabel}` | HOST·ADMIN | 가격 등급 삭제 |
 
-### 내부 API (Feign 전용)
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| `GET` | `/api/v1/programs/schedules/{scheduleId}/bookingInfo` | 예매 서비스용 스케줄 정보 조회 |
-| `GET` | `/api/v1/programs/venues/{venueId}/exists` | 활성 프로그램 존재 여부 확인 |
-
 > REST Docs 문서: 서버 실행 후 `/docs/program-api.html` 에서 확인할 수 있습니다.
 
 ---
